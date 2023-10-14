@@ -22,7 +22,6 @@ tr=np.array(tr)
 
 b=[1,2,3]
 # print(max(b))
-a=[]
-b=[]
-b.append(a)
-print(b)
+a=[4,5]
+
+print(a+b)

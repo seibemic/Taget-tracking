@@ -2,6 +2,7 @@ import numpy as np
 from scipy.stats import multivariate_normal as mvn
 from scipy.stats import poisson, uniform
 import matplotlib.pyplot as plt
+import math
 import time
 
 
@@ -33,8 +34,9 @@ class Trajectory:
 
 
 class Airport:
-    def __init__(self):
-        print("TODO")
+    def __init__(self, pos, cov):
+        self.pos=pos
+        self.cov=cov
 class Radar:
     def __init__(self):
         self.radarPosition = [0., 0.]
@@ -45,7 +47,9 @@ class Radar:
         self.mapMeasurements = None
         self.radarMeasurements = []
         self.trajectoriesMeasurements = None
-        self.Airports = None
+
+        self.airports = []
+        self.borderAirports = []
 
         self.meas_colors = ["orange", "lime", "indigo", "steelblue"]
         self.traj_colors = ["red", "green", "blue", "dodgerblue"]
@@ -75,24 +79,43 @@ class Radar:
         # print(len(self.mapMeasurements)) #[time][coord(x,xy)][measurement_id]
         print("----------------------")
         for t in range(len(self.mapMeasurements)): # time
-            radarMeasuremens = []
-            radarMeasuremensX = []
-            radarMeasuremensY = []
-            allX=self.mapMeasurements[t][0]
-            allY=self.mapMeasurements[t][1]
+            radarMeasurements = []
+            radarMeasurementsX = []
+            radarMeasurementsY = []
+            allX = self.mapMeasurements[t][0]
+            allY = self.mapMeasurements[t][1]
 
             for m_id in range(len(allX)):
                 if (allX[m_id]-self.radarPosition[0])**2 + (allY[m_id]-self.radarPosition[1])**2 < self.radarRadius**2:
-                    radarMeasuremensX.append(allX[m_id])
-                    radarMeasuremensY.append(allY[m_id])
-            radarMeasuremens.append(radarMeasuremensX)
-            radarMeasuremens.append(radarMeasuremensY)
-            self.radarMeasurements.append(radarMeasuremens)
+                    radarMeasurementsX.append(allX[m_id])
+                    radarMeasurementsY.append(allY[m_id])
+            radarMeasurements.append(radarMeasurementsX)
+            radarMeasurements.append(radarMeasurementsY)
+            self.radarMeasurements.append(radarMeasurements)
         return self.radarMeasurements
 
+    def addAirport(self, pos, cov):
+        self.airports.append(Airport(pos, cov))
 
+    def addNRandomAirports(self, N, cov):
+        for i in range(N):
+            r = np.random.randint(0,self.radarRadius*0.95)
+            rad=np.random.randint(0,360)
+            x=math.sin(math.radians(rad)) * r
+            y=math.cos(math.radians(rad)) * r
+            self.addAirport([x,y], cov)
+    def addBorderAirports(self, N, cov):
+        for i in range(N):
+            rad=360/N*i
+            x=math.sin(math.radians(rad)) * self.radarRadius
+            y=math.cos(math.radians(rad)) * self.radarRadius
+            self.borderAirports.append(Airport([x,y], cov))
+
+    def getAirports(self):
+        return self.airports + self.borderAirports
     def animateRadar(self,showTrueTrajectories=True, showTrueTrajectoriesMeasurements=True, showRadar = True,
-                     showMapClutter=True, showRadarClutter=True):
+                     showMapClutter=True, showRadarClutter=True, showBorderAirports=True,
+                     showAirports=True):
         fig, ax = plt.subplots(figsize=(10, 10))
         for t in range(self.map.ndat):
             ax.cla()
@@ -110,7 +133,9 @@ class Radar:
             if showRadar:
                 radar=plt.Circle((self.radarPosition),self.radarRadius, color="b", fill=False)
                 plt.plot(self.radarPosition,"*b")
-            ax.add_patch(radar)
+                ax.add_patch(radar)
+            if showBorderAirports:
+
             # p1=[200,200]
             #
             # if( ((p1[0] - self.radarPosition[0])**2 + (p1[1] - self.radarPosition[1])**2) < self.radarRadius**2):
@@ -149,14 +174,6 @@ class MapGenerator:
 
     def setH(self, H):
         self.H = H
-
-    def addAirport(self):
-        print("TODO")
-        raise Exception("This method is not done yet.")
-
-    def addBorderAirports(self):
-        print("TODO")
-        raise Exception("This method is not done yet.")
 
     def addSingleTrajectory(self, z0, seed=123, lenght=0, startingTime=0, borned=False):  # add starting time
         if (len(z0) != len(self.A)):
