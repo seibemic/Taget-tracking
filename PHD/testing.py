@@ -21,4 +21,8 @@ tr=np.array(tr)
 #print(measurements)
 
 b=[1,2,3]
-print(max(b))
+# print(max(b))
+a=[]
+b=[]
+b.append(a)
+print(b)
