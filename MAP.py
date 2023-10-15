@@ -3,6 +3,7 @@ from scipy.stats import multivariate_normal as mvn
 from scipy.stats import poisson, uniform
 import matplotlib.pyplot as plt
 import math
+from confidence_ellipse import confidence_ellipse
 import time
 
 
@@ -63,7 +64,7 @@ class Radar:
     def addMap(self, A, Q, R, H, ndat, area_vol, lambd):
         self.map = MapGenerator(A, Q, R, H, ndat, area_vol, lambd)
 
-    def makeMap(self, full_trajectories=1, short_trajectories=None, borned_trajectories=0,
+    def makeMap(self, full_trajectories=1, short_trajectories=None, startFromAirport=False, borned_trajectories=0,
                 global_clutter=False, singlePoints=0, trajectory_clutters=False, crossNTrajectories=0):
         if not self.map:
             raise Exception("map not added yet")
@@ -104,7 +105,7 @@ class Radar:
             x=math.sin(math.radians(rad)) * r
             y=math.cos(math.radians(rad)) * r
             self.addAirport([x,y], cov)
-    def addBorderAirports(self, N, cov):
+    def addNBorderAirports(self, N, cov):
         for i in range(N):
             rad=360/N*i
             x=math.sin(math.radians(rad)) * self.radarRadius
@@ -135,7 +136,11 @@ class Radar:
                 plt.plot(self.radarPosition,"*b")
                 ax.add_patch(radar)
             if showBorderAirports:
-
+                for airPort in self.borderAirports:
+                    confidence_ellipse(airPort.pos,airPort.cov, ax=ax,edgecolor="red")
+            if showAirports:
+                for airPort in self.airports:
+                    confidence_ellipse(airPort.pos, airPort.cov,ax=ax, edgecolor="black")
             # p1=[200,200]
             #
             # if( ((p1[0] - self.radarPosition[0])**2 + (p1[1] - self.radarPosition[1])**2) < self.radarRadius**2):
@@ -159,6 +164,8 @@ class MapGenerator:
         self.lambd = lambd
         self.trajectories = []
 
+        self.airports=[]
+
         self.meas_colors = ["orange", "lime", "indigo", "steelblue"]
         self.traj_colors = ["red", "green", "blue", "dodgerblue"]
         self.model_colors = ["saddlebrown", "black", "magenta", "slategray"]
@@ -175,6 +182,8 @@ class MapGenerator:
     def setH(self, H):
         self.H = H
 
+    def addAirport(self,airport):
+        self.append(airport)
     def addSingleTrajectory(self, z0, seed=123, lenght=0, startingTime=0, borned=False):  # add starting time
         if (len(z0) != len(self.A)):
             z0 = np.zeros(len(self.A))
@@ -402,8 +411,11 @@ if __name__ == '__main__':
     # map.addGlobalClutter(2)
     r= Radar()
     r.addMap(A, Q, R, H, ndat, area_vol, lambd)
-    r.makeMap(full_trajectories=2, short_trajectories=[10], global_clutter=True)
+    r.makeMap(full_trajectories=2, short_trajectories=[10], global_clutter=True,startFromAirport=True)
     # r.getAllMeasurementsWithinRadarRadius()
+    airportCov=np.array([[100,0],[0,100]])
+    r.addNRandomAirports(2,airportCov)
+    r.addNBorderAirports(36,airportCov)
     r.animateRadar()
 # map.animateAll()
 # map.addBornedTrajectory(0, 50, 50)
