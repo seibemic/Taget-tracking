@@ -38,97 +38,6 @@ class Airport:
     def __init__(self, pos, cov):
         self.pos=pos
         self.cov=cov
-class Radar:
-    def __init__(self):
-        self.radarPosition = [0., 0.]
-        self.radarRadius = 300
-        self.map = None
-
-
-        self.mapMeasurements = None
-        self.radarMeasurements = []
-        self.trajectoriesMeasurements = None
-
-
-
-        self.meas_colors = ["orange", "lime", "indigo", "steelblue"]
-        self.traj_colors = ["red", "green", "blue", "dodgerblue"]
-        self.model_colors = ["saddlebrown", "black", "magenta", "slategray"]
-    def setRadarPosition(self, position):
-        self.radarPosition = position
-
-    def setRadarRadius(self, radius):
-        self.radarRadius = radius
-
-    def addMap(self, A, Q, R, H, ndat, area_vol, lambd):
-        self.map = MapGenerator(A, Q, R, H, ndat, area_vol, lambd)
-
-    def initRadar(self, full_trajectories=1, short_trajectories=None, startFromAirport=False, borned_trajectories=0,
-                global_clutter=False, singlePoints=0, trajectory_clutters=False, crossNTrajectories=0):
-        if not self.map:
-            raise Exception("map not added yet")
-        minMax=[self.radarPosition[0]-self.radarRadius,self.radarPosition[0]+self.radarRadius,self.radarPosition[1]-self.radarRadius,self.radarPosition[1]+self.radarRadius]
-        self.mapMeasurements = self.map.makeMap(full_trajectories=full_trajectories, short_trajectories=short_trajectories, borned_trajectories=borned_trajectories,
-                               global_clutter=global_clutter, singlePoints=singlePoints, trajectory_clutters=trajectory_clutters, crossNTrajectories=crossNTrajectories,
-                                minMaxClutter=minMax)
-        self.trajectoriesMeasurements = self.map.getAllTrueMeasurements()
-        self.getAllMeasurementsWithinRadarRadius()
-
-    def getAllMeasurementsWithinRadarRadius(self):
-        # print(self.mapMeasurements)
-        # print(len(self.mapMeasurements)) #[time][coord(x,xy)][measurement_id]
-        # print("----------------------")
-        for t in range(len(self.mapMeasurements)): # time
-            radarMeasurements = []
-            radarMeasurementsX = []
-            radarMeasurementsY = []
-            allX = self.mapMeasurements[t][0]
-            allY = self.mapMeasurements[t][1]
-
-            for m_id in range(len(allX)):
-                if (allX[m_id]-self.radarPosition[0])**2 + (allY[m_id]-self.radarPosition[1])**2 < self.radarRadius**2:
-                    radarMeasurementsX.append(allX[m_id])
-                    radarMeasurementsY.append(allY[m_id])
-            radarMeasurements.append(radarMeasurementsX)
-            radarMeasurements.append(radarMeasurementsY)
-            self.radarMeasurements.append(radarMeasurements)
-        return self.radarMeasurements
-
-
-    def animateRadar(self,showTrueTrajectories=True, showTrueTrajectoriesMeasurements=True, showRadar = True,
-                     showMapClutter=True, showRadarClutter=True, showBorderAirports=True,
-                     showAirports=True):
-        fig, ax = plt.subplots(figsize=(10, 10))
-        for t in range(self.map.ndat):
-            ax.cla()
-            ax.set_xlim(self.radarPosition[0] - self.radarRadius - 20, self.radarPosition[0] + self.radarRadius + 20)
-            ax.set_ylim(self.radarPosition[1] - self.radarRadius - 20, self.radarPosition[1] + self.radarRadius + 20)
-            if showTrueTrajectories:
-                for i, traj in enumerate(self.map.trajectories):
-                    plt.plot(traj.X[0], traj.X[1], "-", color=self.traj_colors[i % len(self.traj_colors)])
-            if showMapClutter:
-                plt.plot(self.mapMeasurements[t][0], self.mapMeasurements[t][1], "*", color="gold")
-            if showRadarClutter:
-                plt.plot(self.radarMeasurements[t][0], self.radarMeasurements[t][1], "*", color="orange")
-            if showTrueTrajectoriesMeasurements:
-                plt.plot(self.trajectoriesMeasurements[t][0], self.trajectoriesMeasurements[t][1], "*r")
-            if showRadar:
-                radar=plt.Circle((self.radarPosition),self.radarRadius, color="b", fill=False)
-                plt.plot(self.radarPosition,"*b")
-                ax.add_patch(radar)
-            if showBorderAirports:
-                for airPort in self.map.borderAirports:
-                    confidence_ellipse(airPort.pos,airPort.cov, ax=ax,edgecolor="red")
-            if showAirports:
-                for airPort in self.map.airports:
-                    confidence_ellipse(airPort.pos, airPort.cov,ax=ax, edgecolor="black")
-            # p1=[200,200]
-            #
-            # if( ((p1[0] - self.radarPosition[0])**2 + (p1[1] - self.radarPosition[1])**2) < self.radarRadius**2):
-            #     plt.plot(p1[0],p1[1], marker="*", color="black")
-            # else:
-            #     plt.plot(p1[0],p1[1],  marker="*", color="orange")
-            plt.pause(0.3)
 
 
 class MapGenerator:
@@ -145,8 +54,7 @@ class MapGenerator:
         self.lambd = lambd
         self.trajectories = []
 
-        self.airports = []
-        self.borderAirports = []
+
 
         self.meas_colors = ["orange", "lime", "indigo", "steelblue"]
         self.traj_colors = ["red", "green", "blue", "dodgerblue"]
@@ -164,26 +72,7 @@ class MapGenerator:
     def setH(self, H):
         self.H = H
 
-    def addAirport(self, pos, cov):
-        self.airports.append(Airport(pos, cov))
 
-    def addNRandomAirports(self, N, cov, radarPosition, radarRadius):
-        for i in range(N):
-            r = np.random.randint(0, radarRadius * 0.95)
-            rad = np.random.randint(0, 360)
-            x = math.sin(math.radians(rad)) * r + radarPosition[0]
-            y = math.cos(math.radians(rad)) * r + radarPosition[1]
-            self.addAirport([x, y], cov)
-
-    def addNBorderAirports(self, N, cov, radarPosition, radarRadius):
-        for i in range(N):
-            rad = 360 / N * i
-            x = math.sin(math.radians(rad)) * radarRadius + radarPosition[0]
-            y = math.cos(math.radians(rad)) * radarRadius + radarPosition[1]
-            self.borderAirports.append(Airport([x, y], cov))
-
-    def getAirports(self):
-        return self.airports + self.borderAirports
 
 
     def addSingleTrajectory(self, z0, seed=123, lenght=0, startingTime=0, borned=False):  # add starting time
@@ -193,19 +82,26 @@ class MapGenerator:
             raise Exception("ERR lenght + startingTime > self.ndat")
         self.trajectories.append(Trajectory(self.A, self.Q, self.H, self.R, z0, seed, lenght, startingTime, borned))
 
-    def addNTrajectories(self, N, startingTime=0, borned=False):
-        for i in range(N):
-            z0 = np.zeros(len(self.A))
-            for j in range(len(self.R)):
-                z0[j] = np.random.randint(100)
+    def addNTrajectories(self, N, startingTime=0, borned=False,z0=None):
+        if not z0:
+            for i in range(N):
+                z0 = np.zeros(len(self.A))
+                for j in range(len(self.R)):
+                    z0[j] = np.random.randint(100)
 
-            self.addSingleTrajectory(z0, np.random.randint(1000), self.ndat - startingTime, startingTime, borned)
+                self.addSingleTrajectory(z0, np.random.randint(1000), self.ndat - startingTime, startingTime, borned)
+        else:
+            for i in range(N):
+                self.addSingleTrajectory(z0, np.random.randint(1000), self.ndat - startingTime, startingTime, borned)
 
-    def addNShortTrajectories(self, startingTimes):
+
+    def addNShortTrajectories(self, startingTimes,z0):
         if not isinstance(startingTimes, list):
             raise Exception(startingTimes, " is not a list")
         for time in startingTimes:
-            self.addNTrajectories(1, time, False)
+            self.addNTrajectories(1, time, False,z0)
+
+
 
     def crossTrajectories(self, trajStable, trajToMove, eps=2):
         arg_p1 = np.random.randint(len(trajStable.X[1]) * .3, len(trajStable.X[1]) * .9)
@@ -385,6 +281,146 @@ class MapGenerator:
             #     plt.plot(p1[0],p1[1],  marker="*", color="orange")
             plt.pause(0.3)
 
+class Radar(MapGenerator):
+    def __init__(self, A, Q, R, H, ndat, area_vol, lambd):
+
+        super().__init__(A, Q, R, H, ndat, area_vol, lambd)
+        self.radarPosition = [0., 0.]
+        self.radarRadius = 300
+        # self.map = None
+
+
+        self.mapMeasurements = None
+        self.radarMeasurements = []
+        self.trajectoriesMeasurements = None
+
+        self.airports = []
+        self.borderAirports = []
+
+        self.meas_colors = ["orange", "lime", "indigo", "steelblue"]
+        self.traj_colors = ["red", "green", "blue", "dodgerblue"]
+        self.model_colors = ["saddlebrown", "black", "magenta", "slategray"]
+    def setRadarPosition(self, position):
+        self.radarPosition = position
+
+    def setRadarRadius(self, radius):
+        self.radarRadius = radius
+
+    # def addMap(self, A, Q, R, H, ndat, area_vol, lambd):
+    #     self.map = MapGenerator(A, Q, R, H, ndat, area_vol, lambd)
+
+    # def initRadar(self, full_trajectories=1, short_trajectories=None, startFromAirport=False, borned_trajectories=0,
+    #             global_clutter=False, singlePoints=0, trajectory_clutters=False, crossNTrajectories=0):
+    #     if not self.map:
+    #         raise Exception("map not added yet")
+    #     minMax=[self.radarPosition[0]-self.radarRadius,self.radarPosition[0]+self.radarRadius,self.radarPosition[1]-self.radarRadius,self.radarPosition[1]+self.radarRadius]
+    #     self.mapMeasurements = self.map.makeMap(full_trajectories=full_trajectories, short_trajectories=short_trajectories, borned_trajectories=borned_trajectories,
+    #                            global_clutter=global_clutter, singlePoints=singlePoints, trajectory_clutters=trajectory_clutters, crossNTrajectories=crossNTrajectories,
+    #                             minMaxClutter=minMax)
+    #     self.trajectoriesMeasurements = self.map.getAllTrueMeasurements()
+    #     self.getAllMeasurementsWithinRadarRadius()
+
+    def makeRadarMap(self, full_trajectories=1, short_trajectories=None, startFromAirport=False, borned_trajectories=0,
+                 global_clutter=False, singlePoints=0, trajectory_clutters=False, crossNTrajectories=0):
+        if startFromAirport:
+            for i in range(full_trajectories):
+                z0=np.random.randint(len(self.airports))
+                self.addNTrajectories(1,0,False,self.airports[z0].pos)
+            if short_trajectories:
+                for time in short_trajectories:
+                    z0 = np.random.randint(len(self.airports))
+                    self.addNShortTrajectories([time],self.airports[z0].pos)
+
+        else:
+            self.addNTrajectories(full_trajectories)
+            if short_trajectories:
+                self.addNShortTrajectories(short_trajectories)
+
+        self.addNRandomlyBornedTrajectories(borned_trajectories)
+        self.crossNRandomTrajectories(crossNTrajectories)
+
+        if global_clutter:
+            minMax = [self.radarPosition[0] - self.radarRadius, self.radarPosition[0] + self.radarRadius,
+                      self.radarPosition[1] - self.radarRadius, self.radarPosition[1] + self.radarRadius]
+            self.addGlobalClutter(NSinglePoints=singlePoints, minMax=minMax)
+
+        self.trajectoriesMeasurements = self.getAllTrueMeasurements()
+        self.getAllMeasurementsWithinRadarRadius()
+    def getAllMeasurementsWithinRadarRadius(self):
+        # print(self.mapMeasurements)
+        # print(len(self.mapMeasurements)) #[time][coord(x,xy)][measurement_id]
+        # print("----------------------")
+        for t in range(len(self.allMeasurements)): # time
+            radarMeasurements = []
+            radarMeasurementsX = []
+            radarMeasurementsY = []
+            allX = self.allMeasurements[t][0]
+            allY = self.allMeasurements[t][1]
+
+            for m_id in range(len(allX)):
+                if (allX[m_id]-self.radarPosition[0])**2 + (allY[m_id]-self.radarPosition[1])**2 < self.radarRadius**2:
+                    radarMeasurementsX.append(allX[m_id])
+                    radarMeasurementsY.append(allY[m_id])
+            radarMeasurements.append(radarMeasurementsX)
+            radarMeasurements.append(radarMeasurementsY)
+            self.radarMeasurements.append(radarMeasurements)
+        return self.radarMeasurements
+
+    def addAirport(self, pos, cov):
+        self.airports.append(Airport(pos, cov))
+
+    def addNRandomAirports(self, N, cov):
+        for i in range(N):
+            r = np.random.randint(0, self.radarRadius * 0.95)
+            rad = np.random.randint(0, 360)
+            x = math.sin(math.radians(rad)) * r + self.radarPosition[0]
+            y = math.cos(math.radians(rad)) * r + self.radarPosition[1]
+            self.addAirport([x, y,0,0], cov)
+
+    def addNBorderAirports(self, N, cov):
+        for i in range(N):
+            rad = 360 / N * i
+            x = math.sin(math.radians(rad)) * self.radarRadius + self.radarPosition[0]
+            y = math.cos(math.radians(rad)) * self.radarRadius + self.radarPosition[1]
+            self.borderAirports.append(Airport([x, y], cov))
+
+    def getAirports(self):
+        return self.airports + self.borderAirports
+
+    def animateRadar(self,showTrueTrajectories=True, showTrueTrajectoriesMeasurements=True, showRadar = True,
+                     showMapClutter=True, showRadarClutter=True, showBorderAirports=True,
+                     showAirports=True):
+        fig, ax = plt.subplots(figsize=(10, 10))
+        for t in range(self.ndat):
+            ax.cla()
+            ax.set_xlim(self.radarPosition[0] - self.radarRadius - 20, self.radarPosition[0] + self.radarRadius + 20)
+            ax.set_ylim(self.radarPosition[1] - self.radarRadius - 20, self.radarPosition[1] + self.radarRadius + 20)
+            if showTrueTrajectories:
+                for i, traj in enumerate(self.trajectories):
+                    plt.plot(traj.X[0], traj.X[1], "-", color=self.traj_colors[i % len(self.traj_colors)])
+            if showMapClutter:
+                plt.plot(self.allMeasurements[t][0], self.allMeasurements[t][1], "*", color="gold")
+            if showRadarClutter:
+                plt.plot(self.radarMeasurements[t][0], self.radarMeasurements[t][1], "*", color="orange")
+            if showTrueTrajectoriesMeasurements:
+                plt.plot(self.trajectoriesMeasurements[t][0], self.trajectoriesMeasurements[t][1], "*r")
+            if showRadar:
+                radar=plt.Circle((self.radarPosition),self.radarRadius, color="b", fill=False)
+                plt.plot(self.radarPosition[0],self.radarPosition[1],"*b")
+                ax.add_patch(radar)
+            if showBorderAirports:
+                for airPort in self.borderAirports:
+                    confidence_ellipse(airPort.pos[:2],airPort.cov, ax=ax,edgecolor="red")
+            if showAirports:
+                for airPort in self.airports:
+                    confidence_ellipse(airPort.pos[:2], airPort.cov,ax=ax, edgecolor="black")
+            # p1=[200,200]
+            #
+            # if( ((p1[0] - self.radarPosition[0])**2 + (p1[1] - self.radarPosition[1])**2) < self.radarRadius**2):
+            #     plt.plot(p1[0],p1[1], marker="*", color="black")
+            # else:
+            #     plt.plot(p1[0],p1[1],  marker="*", color="orange")
+            plt.pause(0.3)
 
 if __name__ == '__main__':
     dt = 1
@@ -397,7 +433,7 @@ if __name__ == '__main__':
     H = np.diag([1, 1])  # 2x4
     H = np.lib.pad(H, ((0, 0), (0, 2)), 'constant', constant_values=(0))
 
-    ndat = 50
+    ndat = 200
     area_vol = 20
     lambd = 0.0001
     n_objects = 2
@@ -411,13 +447,15 @@ if __name__ == '__main__':
     # map.crossNRandomTrajectories(1)
     # map.addNShortTrajectories([2])
     # map.addGlobalClutter(2)
-    r= Radar()
-    r.addMap(A, Q, R, H, ndat, area_vol, lambd)
-    r.makeMap(full_trajectories=2, short_trajectories=[10], global_clutter=True,startFromAirport=True)
+    r= Radar(A, Q, R, H, ndat, area_vol, lambd)
+    r.setRadarPosition([100,100])
+    #r.addMap(A, Q, R, H, ndat, area_vol, lambd)
+    airportCov = np.array([[100, 0], [0, 100]])
+    r.addNRandomAirports(2, airportCov)
+    r.addNBorderAirports(36, airportCov)
+    r.makeRadarMap(full_trajectories=3, short_trajectories=[10,20], global_clutter=True,startFromAirport=True)
     # r.getAllMeasurementsWithinRadarRadius()
-    airportCov=np.array([[100,0],[0,100]])
-    r.addNRandomAirports(2,airportCov)
-    r.addNBorderAirports(36,airportCov)
+
     r.animateRadar()
 # map.animateAll()
 # map.addBornedTrajectory(0, 50, 50)
