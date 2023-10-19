@@ -1,27 +1,36 @@
 import numpy as np
-from scipy.stats import multivariate_normal as mvn
-from scipy.stats import poisson, uniform
-import matplotlib.pyplot as plt
 
+a = [[1, 1, 1], [2, 2, 2], [3, 3, 3], [4, 4, 4]]
+b = [[10, 10, 10], [20, 20, 20], [30, 30, 30], [40, 40, 40]]
 
-a=[[1,1,1],[2,2,2],[3,3,3],[4,4,4]]
-b=[[10,10,10],[20,20,20],[30,30,30],[40,40,40]]
-
-tr=[]
+tr = []
 tr.append(a)
 tr.append(b)
-tr=np.array(tr)
-#print(tr[0][0])
-#measurements=np.zeros((2,len(tr[0][0])))
-#print(measurements)
-#for j in range(len(tr[0][0])):
+tr = np.array(tr)
+# print(tr[0][0])
+# measurements=np.zeros((2,len(tr[0][0])))
+# print(measurements)
+# for j in range(len(tr[0][0])):
 #    measurements[0][j]=(tr[:,0,j])
- #   measurements[1][j]=(tr[:,1,j])
+#   measurements[1][j]=(tr[:,1,j])
 
-#print(measurements)
+# print(measurements)
 
-b=[1,2,3]
+b = [1, 2, 3]
 # print(max(b))
-a=[4,5]
+a = [4, 5]
 
-print(a+b)
+print(a + b)
+
+c = [1, 2, 3, 4, 5]
+c += [6]
+print(c)
+for el in c:
+    print("remove ", el)
+    c.remove(el)
+print(np.eye(2))
+
+from scipy.stats import multivariate_normal as mvn
+
+g=mvn([0],3).rvs(4)
+print(g)
