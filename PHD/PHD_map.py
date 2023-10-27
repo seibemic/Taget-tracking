@@ -25,7 +25,6 @@ class PHD_map:
         self.w_beta = 0.2
 
         self.T = 10e-5
-        print(self.T)
         self.U = 4
         self.J_max = 10
         self.model_colors = ["saddlebrown", "black", "magenta", "slategray"]
@@ -138,7 +137,7 @@ class PHD_map:
         else:
             self.phds = mixed_filters
 
-    def updateWithMeasurements2(self, time):
+    def updateWithMeasurements(self, time):
         Jk = len(self.phds)
         self.updateComponents2()
         for l, z in enumerate(zip(self.measurements[time][0], self.measurements[time][1])):
@@ -156,7 +155,7 @@ class PHD_map:
         for j in range(Jk):
             self.phds[j].update(self.pd)
 
-    def updateWithMeasurements(self, time):
+    def updateWithMeasurementsTMP(self, time):
         old_phds = self.phds.copy()
         self.update()
         old_phds = self.updateComponents(old_phds)
@@ -180,25 +179,7 @@ class PHD_map:
         #     print("weight: ", p.w)
         # print("-------------------------")
 
-    def log(self):
-        for filter in self.phds:
-            filter.log()
 
-        # phds = self.phds
-        #
-        # for l,z in enumerate(zip(self.measurements[time][0],self.measurements[time][1])):
-        #     z=np.array(z)
-        #     phd_sum=0
-        #     new_phds = []
-        #     for j, filter in enumerate(phds):
-        #         w = self.pd * filter.w * mvn(filter.ny,filter.S).pdf(z)
-        #         m = filter.m +filter.K @ (z-filter.ny)
-        #         P = filter.P_aposterior
-        #         new_phds.append(PHD(w,m,P))
-        #         phd_sum+=w
-        #     for j, filter in enumerate(new_phds):
-        #         filter.w = filter.w / (self.radarMap.lambd + phd_sum)
-        #     self.phds+=new_phds
 
     def run(self):
         fig, ax = plt.subplots(figsize=(10, 10))
@@ -208,7 +189,7 @@ class PHD_map:
             # self.updateComponents()
             # self.update()
             # if (t % 2 == 0):
-            self.updateWithMeasurements2(t)
+            self.updateWithMeasurements(t)
             # self.pruneByMaxWeight(0.1)
             # self.log()
             self.mergeTargets()
@@ -220,7 +201,7 @@ class PHD_map:
                 # print(r.P.diagonal())
             #print(w)
             self.getPHDsToPlot()
-            self.radarMap.animateRadar2(t, ax)
+            self.radarMap.animateRadar(t, ax)
             for i, filter in enumerate(self.phdsToPlot):
                 ax.plot(filter.m[0], filter.m[1], "+", color=self.model_colors[i % len(self.model_colors)], label="PHD")
                 confidence_ellipse([filter.m[0], filter.m[1]], filter.P, ax=ax,
@@ -234,7 +215,7 @@ class PHD_map:
 
 if __name__ == '__main__':
     dt = 1
-    A = np.array([[1, 0, dt, 0],
+    F = np.array([[1, 0, dt, 0],
                   [0, 1, 0, dt],
                   [0, 0, 1, 0],
                   [0, 0, 0, 1]])
@@ -244,39 +225,29 @@ if __name__ == '__main__':
     H = np.lib.pad(H, ((0, 0), (0, 2)), 'constant', constant_values=(0))
 
     ndat = 100
-    area_vol = 20
     lambd = 0.0001
-    Pg = 0.99
     Pd = 0.9
-    r0 = 0.98
     Ps = 0.95
 
-    # map = MapGenerator(A, Q, R, H, ndat, area_vol, lambd)
-    # map.addNTrajectories(2)
-    # map.crossNRandomTrajectories(1)
-    # map.addNShortTrajectories([2])
-    # map.addGlobalClutter(2)
-    r = Radar(A, Q, R, H, ndat, area_vol, lambd)
+    r = Radar(F, Q, R, H, ndat, lambd)
     r.setRadarPosition([100, 100])
-    # r.addMap(A, Q, R, H, ndat, area_vol, lambd)
-    # airportCov = np.array([[100, 0,0,0], [0, 100,0,0],[0,0,20,0],[]])
-
+    # r.setRadarRadius(500)
     sx = R[0, 0] * 5
     sy = R[1, 1] * 5
     airportCov = np.array([[sx, 0, sx, 0],
                            [0, sy, 0, sy],
                            [sx, 0, 2 * sx, 0],
                            [0, sy, 0, 2 * sy]])
-    # airportCov2=np.diag([100,100,100,100])
 
     r.addNRandomAirports(2, airportCov, 0.15)
     r.addNBorderAirports(36, airportCov, 0.1)
     # seed = 123
     seed=np.random.randint(1000)
-    r.addSingleTrajectory([-150, 350, 0, 0], seed, ndat, 0, False)
+    r.addSingleTrajectory([-150, 350, 2, -2], seed, ndat, 0, False)
     r.makeRadarMap(full_trajectories=2, short_trajectories=None, global_clutter=True, startFromAirport=True,
                    borned_trajectories=0)
-    # r.makeRadarMap(full_trajectories=2, short_trajectories=[50], global_clutter=False, startFromAirport=False)
+     # r.makeRadarMap(full_trajectories=2, short_trajectories=[50], global_clutter=False, startFromAirport=False)
 
     filter = PHD_map(r, Ps, Pd)
     filter.run()
+

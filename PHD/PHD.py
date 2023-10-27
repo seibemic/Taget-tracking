@@ -7,7 +7,7 @@ class PHD:
         self.m = m
         self.P = P
         # self.P_aposterior=self.P_aprior
-        self.log_x = []
+
 
     def predict(self, ps, A, Q):
         self.w = ps * self.w
@@ -27,5 +27,3 @@ class PHD:
         self.P = self.P_apost
         # self.P_aposterior = self.P_aprior
 
-    def log(self):
-        self.log_x.append(self.m)

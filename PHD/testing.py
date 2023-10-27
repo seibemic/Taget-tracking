@@ -31,6 +31,23 @@ for el in c:
 print(np.eye(2))
 
 from scipy.stats import multivariate_normal as mvn
+from scipy.stats import norm
+dym = np.zeros(1000)
 
-g=mvn([0],3).rvs(4)
-print(g)
+
+def fibonacci(n):
+    # Taking 1st two fibonacci numbers as 0 and 1
+    f = [0, 1]
+
+    for i in range(2, n + 1):
+        f.append(f[i - 1] + f[i - 2])
+    return f[n]
+
+
+a=[1,2,3]
+b=[3,4,5]
+for i in (zip(a,b)):
+    i=np.array(i)
+    print(i)
+#t=mvn.pdf(z, eta, S)
+#print("T: ", t)
