@@ -100,16 +100,12 @@ class PHD_map:
                 filters_to_stay.append(filter)
 
         while len(filters_to_stay) != 0:
-            # print("-------------")
-            # print(type(filters_to_stay))
             j = self.argMax(filters_to_stay)
             L = []  # indexes
-            # print(len(filters_to_stay))
             for i in range(len(filters_to_stay)):
                 if ((filters_to_stay[i].m - filters_to_stay[j].m).T @
                     np.linalg.inv(filters_to_stay[i].P) @ (filters_to_stay[i].m - filters_to_stay[j].m)) < self.U:
                     L.append(i)
-            # print(len(L))
             w_mix = 0
             for t_id in L:
                 w_mix += filters_to_stay[t_id].w
@@ -118,14 +114,11 @@ class PHD_map:
                 m_mix += filters_to_stay[t_id].w * filters_to_stay[t_id].m
             m_mix /= w_mix
             P_mix = np.zeros_like(filters_to_stay[0].P, dtype="float64")
-            # print(P_mix + filters_to_stay[0].w * filters_to_stay[0].P + np.outer((m_mix-filters_to_stay[0].m),(m_mix-filters_to_stay[0].m).T))
-            #print("mix: ",  np.outer((m_mix - filters_to_stay[0].m),(m_mix - filters_to_stay[0].m).T))
             for t_id in L:
                 P_mix += filters_to_stay[t_id].w * (
                             filters_to_stay[t_id].P + np.outer((m_mix - filters_to_stay[t_id].m),
                                                                (m_mix - filters_to_stay[t_id].m).T))
             P_mix /= w_mix
-            #print("P mix: ", P_mix)
             mixed_filters.append(PHD(w_mix,m_mix,P_mix))
             removed = np.delete(filters_to_stay, L)
             filters_to_stay = removed.tolist()
@@ -219,32 +212,43 @@ if __name__ == '__main__':
                   [0, 1, 0, dt],
                   [0, 0, 1, 0],
                   [0, 0, 0, 1]])
-    Q = np.diag([0.1, 0.1, 0.1, 0.1])
-    R = np.diag([5, 5]) * 5
+    # Q = np.diag([0.1, 0.1, 0.1, 0.1])
+    Q = np.array([[dt**4/4, 0, dt**3/2,0],
+                  [0, dt**4/4,0, dt**3/2],
+                  [dt**3/2, 0, dt**2, 0],
+                  [0, dt**3/2, 0, dt**3/2]])*25
+    #R = np.diag([5, 5]) * 5
+    R = np.eye(2)*100
     H = np.diag([1, 1])  # 2x4
     H = np.lib.pad(H, ((0, 0), (0, 2)), 'constant', constant_values=(0))
 
     ndat = 100
-    lambd = 0.0001
-    Pd = 0.9
-    Ps = 0.95
+    # lambd = 0.0001
+    lambd = 50/4000000
+    #Pd = 0.9
+    Pd = 0.98
+    #Ps = 0.95
+    Ps = 0.99
 
     r = Radar(F, Q, R, H, ndat, lambd)
-    r.setRadarPosition([100, 100])
+    r.setRadarPosition([0, 0])
+    r.setRadarRadius(1000)
     # r.setRadarRadius(500)
     sx = R[0, 0] * 5
     sy = R[1, 1] * 5
-    airportCov = np.array([[sx, 0, sx, 0],
-                           [0, sy, 0, sy],
-                           [sx, 0, 2 * sx, 0],
-                           [0, sy, 0, 2 * sy]])
-
-    r.addNRandomAirports(2, airportCov, 0.15)
+    # airportCov = np.array([[sx, 0, sx, 0],
+    #                        [0, sy, 0, sy],
+    #                        [sx, 0, 2 * sx, 0],
+    #                        [0, sy, 0, 2 * sy]])
+    airportCov = np.diag([100,100,25,25])
+    # r.addNRandomAirports(2, airportCov, 0.15)
+    r.addAirport([250,250,0,0], airportCov,0.1)
+    r.addAirport([-250, -250, 0, 0], airportCov, 0.1)
     r.addNBorderAirports(36, airportCov, 0.1)
     # seed = 123
     seed=np.random.randint(1000)
-    r.addSingleTrajectory([-150, 350, 2, -2], seed, ndat, 0, False)
-    r.makeRadarMap(full_trajectories=2, short_trajectories=None, global_clutter=True, startFromAirport=True,
+    # r.addSingleTrajectory([-150, 350, 2, -2], seed, ndat, 0, False)
+    r.makeRadarMap(full_trajectories=4, short_trajectories=None, global_clutter=True, startFromAirport=True,
                    borned_trajectories=0)
      # r.makeRadarMap(full_trajectories=2, short_trajectories=[50], global_clutter=False, startFromAirport=False)
 

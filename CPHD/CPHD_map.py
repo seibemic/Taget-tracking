@@ -60,7 +60,7 @@ class CPHD_map:
         w=[]
         for target in self.cphds:
             w.append(target.w)
-        return w
+        return np.array(w)
 
     def elementarySymmetricPolynomial(self, j, Z):
         if j == 0:
@@ -71,14 +71,32 @@ class CPHD_map:
             res += np.prod(np.array(c))
         return res
 
+    def getq(self,z):
+        q = []
+        for target in self.cphds:
+            eta = self.H @ target.m
+            S = self.H @ target.P @ self.H.T + self.R
+            q.append(mvn(eta,S).pdf(z))
+        return np.array(q)
     def LAMBDA(self, w, Z):
+        lambdaSet = []
+        for z in Z:
+            kappa = len(Z)/self.radarMap.radarRadius**2
+            q = self.getq(z)
+            lambdaSet.append(kappa * self.pd * w.T @ q)
+        return lambdaSet
     def psi(self, w, Z, n, u):
-        res = 0
+        res = []
         w = self.getWeights()
         for j in range(min(len(Z), n)):
             pK = poisson.pmf(len(Z), len(Z) - j)
-            res+= (len(Z)-j) * pK * perm(n, j+u, exact=True) * (1-self.pd)**(n-(j+u)) / np.inner(1, w)**(j+u)
+            res.append( (len(Z)-j) * pK * perm(n, j+u, exact=True) * (1-self.pd)**(n-(j+u)) / np.inner(1, w)**(j+u) * )
+
+    def updateCardinality(self):
+
+    def updateComponents(self):
     def update(self):
+
         print("TODO")
 
 if __name__ == '__main__':

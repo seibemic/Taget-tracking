@@ -8,3 +8,7 @@ class CPHD:
         self.w = ps * self.w
         self.m = A @ self.m
         self.P = Q + A @ self.P @ A.T
+
+    def updateComponents(self):
+
+    def update(self):
