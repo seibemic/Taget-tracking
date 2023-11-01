@@ -32,7 +32,7 @@ class CPHD_map:
         self.cphdsToPlot = []
         self.T = 10e-5
         self.U = 4
-        self.J_max = 10
+        self.J_max = Nmax
 
         self.model_colors = ["saddlebrown", "black", "magenta", "slategray"]
 
@@ -129,15 +129,19 @@ class CPHD_map:
         for i in range(self.Nmax):
             denominator += self.PSI(0,w,Z,i) * self.card[i]
         newTargets = []
+        Z_copy = Z.copy()
         for l, z in enumerate(Z):
             # print("new hypotheses l: ",l)
             nominator = 0
-            Z_copy = Z.copy()
-            np.delete(Z_copy, l, axis=0)
-            print("nom")
+            temp = Z_copy[0]
+            Z_copy[:-1] = Z_copy[1:]
+
+            # Z_copy = Z.copy()
+            # np.delete(Z_copy, l, axis=0)
+            # print("nom")
             for i in range(self.Nmax):
                 # print("new hypotheses i: ", i)
-                nominator += self.PSI(1, w, Z_copy, i) * self.card[i]
+                nominator += self.PSI(1, w, Z_copy[:-1], i) * self.card[i]
 
             psi_res = nominator / denominator * self.area_vol / self.radarMap.lambd
             # print("psi res: ", psi_res)
@@ -148,6 +152,7 @@ class CPHD_map:
                 w_ = self.pd * target.w * mvn.pdf(z, target.eta, target.S) * psi_res
                 m = target.m + target.K @ (z - target.eta)
                 newTargets.append(CPHD(w_, m, target.P))
+            Z_copy[-1] = temp
         return newTargets, denominator
 
     def updateOld(self, denominator, Z):
@@ -224,11 +229,10 @@ class CPHD_map:
             removed = np.delete(filters_to_stay, L)
             filters_to_stay = removed.tolist()
 
+        self.cphds = mixed_filters
         if len(mixed_filters) > self.J_max:
-            self.cphds = mixed_filters
-            self.pruneByMaxWeight(0.1)
-        else:
-            self.cphds = mixed_filters
+            self.pruneByMaxWeight(0.3)
+
     def update(self, Z):
         print("update Components")
         self.updateComponents()
@@ -254,9 +258,12 @@ class CPHD_map:
             self.getCPHDsToPlot()
             print("num of cphds: ", len(self.cphds))
             print("num of cphds to plot: ", len(self.cphdsToPlot))
-
+            print("cardinality:")
+            print(self.card)
             self.radarMap.animateRadar(t, ax)
             for i, filter in enumerate(self.cphdsToPlot):
+                ax.set_title(f"time = {t}")
+
                 ax.plot(filter.m[0], filter.m[1], "+", color=self.model_colors[i % len(self.model_colors)], label="CPHD")
                 confidence_ellipse([filter.m[0], filter.m[1]], filter.P, ax=ax,
                                    edgecolor=self.model_colors[i % len(self.model_colors)])
@@ -302,7 +309,7 @@ if __name__ == '__main__':
     r.makeRadarMap(full_trajectories=2, short_trajectories=None, global_clutter=True, startFromAirport=True,
                    borned_trajectories=0)
      # r.makeRadarMap(full_trajectories=2, short_trajectories=[50], global_clutter=False, startFromAirport=False)
-    Nmax=5
+    Nmax=10
     card = np.ones(Nmax)*1/Nmax
     filter = CPHD_map(r, Ps, Pd,card, Nmax,card.copy() )
     filter.run()

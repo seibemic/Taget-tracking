@@ -1,3 +1,5 @@
+import math
+
 from scipy.stats import poisson
 import numpy as np
 from itertools import combinations
@@ -13,7 +15,7 @@ a = [[[123.71589969726391, -31.469102634455552, 264.7997679960376, 71.9261089098
 # print(np.delete(b, 1,axis=0))
 
 z = [1,2,3,4,5]
-z= [i for i in range(500)]
+z= [i for i in range(10)]
 def elementarySymmetricPolynomial( j, Z):
     if j == 0:
         return 1
@@ -23,10 +25,10 @@ def elementarySymmetricPolynomial( j, Z):
         res += np.prod(np.array(c))
     return res
 t1 = datetime.now().microsecond
-print(elementarySymmetricPolynomial(2,z))
-t2 =datetime.now().microsecond
-print("alg 1: ", t2-t1)
-print(2+3+4+5+6+8+10+12+15+20)
+# print(elementarySymmetricPolynomial(2,z))
+# t2 =datetime.now().microsecond
+# print("alg 1: ", t2-t1)
+# print(2+3+4+5+6+8+10+12+15+20)
 
 
 def elementary_symmetric_function_recursive(roots, k):
@@ -38,10 +40,40 @@ def elementary_symmetric_function_recursive(roots, k):
     return elementary_symmetric_function_recursive(roots[1:], k) + roots[0] * elementary_symmetric_function_recursive(roots[1:], k - 1)
 
 # Example usage:
-roots = [1, 2, 3, 4,5]
-k = 2
+# roots = [1, 2, 3, 4,5]
+# k = 2
+# t1 = datetime.now().microsecond
+# result = elementary_symmetric_function_recursive(z, k)
+# t2 = datetime.now().microsecond
+# print("alg 2: ", t2-t1)
+# print(f"The {k}-th elementary symmetric function is {result}")
+
 t1 = datetime.now().microsecond
-result = elementary_symmetric_function_recursive(z, k)
+for i in range(len(z)):
+    temp=z[0]
+    z[:-1] = z[1:]
+    # print(z[:-1])
+    z[-1] = temp
+t2 = datetime.now().microsecond
+print("alg 1: ", t2-t1)
+t1 = datetime.now().microsecond
+for i in range(len(z)):
+    Z_copy = z.copy()
+    np.delete(Z_copy, i, axis=0)
 t2 = datetime.now().microsecond
 print("alg 2: ", t2-t1)
-print(f"The {k}-th elementary symmetric function is {result}")
+
+
+from scipy.special import binom
+from scipy.special import perm
+n=5
+j=3
+u=1
+p=perm(n, j+u, exact=True)
+p2=math.factorial(n)/math.factorial(n-j-u)
+print(p, p2)
+l=5
+j=3
+b=binom(l,j)
+b2=math.factorial(l)/(math.factorial(j)*math.factorial(l-j))
+print(b, b2)
