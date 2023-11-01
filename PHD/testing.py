@@ -44,10 +44,11 @@ def fibonacci(n):
     return f[n]
 
 
-a=[1,2,3]
-b=[3,4,5]
-for i in (zip(a,b)):
-    i=np.array(i)
-    print(i)
+a=np.array([1,2,3])
+b=np.array([3,4,5])
+
+print("a * b = \n", a*b.T)
+print("outer = \n", np.outer(a,b))
+print("a*b + outer = \n",  a*b.T + np.outer(a,b))
 #t=mvn.pdf(z, eta, S)
 #print("T: ", t)
