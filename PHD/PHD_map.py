@@ -244,7 +244,7 @@ if __name__ == '__main__':
     # seed = 123
     seed=np.random.randint(1000)
     r.addSingleTrajectory([-150, 350, 2, -2], seed, ndat, 0, False)
-    r.makeRadarMap(full_trajectories=2, short_trajectories=None, global_clutter=True, startFromAirport=True,
+    r.makeRadarMap(full_trajectories=5, short_trajectories=None, global_clutter=True, startFromAirport=True,
                    borned_trajectories=0)
      # r.makeRadarMap(full_trajectories=2, short_trajectories=[50], global_clutter=False, startFromAirport=False)
 

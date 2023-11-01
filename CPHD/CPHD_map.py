@@ -8,9 +8,11 @@ from MAP2 import Radar
 from scipy.special import binom
 from scipy.special import perm
 from itertools import combinations
+import math
 class CPHD_map:
     def __init__(self, radar, ps, pd, card, Nmax, birthCard):
         self.radarMap = radar
+        self.area_vol = (self.radarMap.radarRadius*2)**2
         self.F = radar.A
         self.H = radar.H
         self.Q = radar.Q
@@ -20,13 +22,19 @@ class CPHD_map:
         self.cphds = []
         self.card=card
         self.Nmax=Nmax
-        self.birthCard= birthCard
+        self.birthCard = birthCard
         self.v = 0
         #36self.birthIntensity = birthIntensity
         self.J_gamma = len(self.radarMap.getAirports())
         self.cphdsToPlot = []
         self.measurements = radar.getAllMeasurementsWithinRadarRadius()
 
+        self.cphdsToPlot = []
+        self.T = 10e-5
+        self.U = 4
+        self.J_max = 10
+
+        self.model_colors = ["saddlebrown", "black", "magenta", "slategray"]
 
     def calculatePredictCardinality(self, n):
         res=0
@@ -56,11 +64,13 @@ class CPHD_map:
         self.predictionForExistingTargets()
         self.predictionForBirthTargets()
 
+
+    """ ---------------- UPDATE ----------------"""
     def getWeights(self):
         w=[]
         for target in self.cphds:
             w.append(target.w)
-        return w
+        return np.array(w)
 
     def elementarySymmetricPolynomial(self, j, Z):
         if j == 0:
@@ -71,16 +81,193 @@ class CPHD_map:
             res += np.prod(np.array(c))
         return res
 
-    def LAMBDA(self, w, Z):
-    def psi(self, w, Z, n, u):
-        res = 0
-        w = self.getWeights()
-        for j in range(min(len(Z), n)):
-            pK = poisson.pmf(len(Z), len(Z) - j)
-            res+= (len(Z)-j) * pK * perm(n, j+u, exact=True) * (1-self.pd)**(n-(j+u)) / np.inner(1, w)**(j+u)
-    def update(self):
-        print("TODO")
+    def elementarySymmetricPolynomial2(self, j, Z):
+        if j == 0:
+            return 1
+        if len(Z) < j:
+            return 0
 
+        return self.elementarySymmetricPolynomial2(j, Z[1:]) + Z[0] * self.elementarySymmetricPolynomial2(j-1, Z[1:])
+    def q(self, z):
+        Q = []
+        for target in self.cphds:
+            Q.append(mvn.pdf(z,target.eta,target.S))
+        # for j in range(len(self.cphds)):
+        #     S = self.H @ self.cphds[j].P @ self.H.T + self.R
+        #     eta = self.H @ self.cphds[j].m
+        #     Q.append(mvn.pdf(z,eta,S))
+        return np.array(Q)
+    def LAMBDA(self, w, Z):
+        res = []
+        w_ = self.area_vol / self.radarMap.lambd * self.pd * w
+        for z in Z:
+            res.append( w_.T @ self.q(z))
+        return np.array(res)
+    def PSI(self, u, w, Z, n):
+        res = 0
+        lambd = self.LAMBDA(w, Z)
+        for j in range(min(len(Z), n)):
+            pK = poisson.pmf(int(self.area_vol * self.radarMap.lambd), len(Z) - j)+0.0001
+            # print("PSI: ",((len(Z)-j) * pK * perm(n, j+u, exact=True)
+            #        * (1-self.pd)**(n-(j+u)) / np.sum(w)**(j+u)))
+            # print(self.area_vol, self.radarMap.lambd, self.area_vol*self.radarMap.lambd)
+            # print(len(Z)-j)
+            # print("pk: ", pK)
+            # print("perm: ", perm(n, j+u, exact=True))
+            # print("zbytek: ", (1-self.pd)**(n-(j+u)) / np.sum(w)**(j+u))
+            res += (((len(Z)-j) * pK * perm(n, j+u, exact=True)
+                   * (1-self.pd)**(n-(j+u)) / np.sum(w)**(j+u))
+                   * self.elementarySymmetricPolynomial2(j, lambd))
+
+        return res
+    def updateComponents(self):
+        for target in self.cphds:
+            target.updateComponents(self.H, self.R)
+    def getNewHypotheses(self,Z):
+        denominator = 0
+        w = self.getWeights()
+        for i in range(self.Nmax):
+            denominator += self.PSI(0,w,Z,i) * self.card[i]
+        newTargets = []
+        for l, z in enumerate(Z):
+            # print("new hypotheses l: ",l)
+            nominator = 0
+            Z_copy = Z.copy()
+            np.delete(Z_copy, l, axis=0)
+            print("nom")
+            for i in range(self.Nmax):
+                # print("new hypotheses i: ", i)
+                nominator += self.PSI(1, w, Z_copy, i) * self.card[i]
+
+            psi_res = nominator / denominator * self.area_vol / self.radarMap.lambd
+            # print("psi res: ", psi_res)
+            # print(nominator / denominator)
+            # print("nom: ", nominator)
+            # print("denom: ", denominator)
+            for target in self.cphds:
+                w_ = self.pd * target.w * mvn.pdf(z, target.eta, target.S) * psi_res
+                m = target.m + target.K @ (z - target.eta)
+                newTargets.append(CPHD(w_, m, target.P))
+        return newTargets, denominator
+
+    def updateOld(self, denominator, Z):
+        nominator = 0
+        w = self.getWeights()
+        for i in range(self.Nmax):
+            nominator += self.PSI(1, w, Z, i) * self.card[i]
+        res = nominator / denominator
+        for target in self.cphds:
+            target.update(self.pd, res)
+
+    def updateCardinality(self, Z):
+        w = self.getWeights()
+        for i in range(self.Nmax):
+            self.card[i] *= self.PSI(0, w, Z, i)
+        self.card /= sum(self.card)
+
+    def mergeOldAndNewTargets(self, newTargets):
+        self.cphds.extend(newTargets)
+
+
+
+    def pruneByMaxWeight(self, w):
+        filters_to_stay = []
+        for filter in self.cphds:
+            if filter.w > w:
+                filters_to_stay.append(filter)
+        self.cphds = filters_to_stay
+
+    def argMax(self, filters):
+        maX = 0
+        argmaX = 0
+        for i, filter in enumerate(filters):
+            if filter.w > maX:
+                maX = filter.w
+                argmaX = i
+        return argmaX
+
+    def getCPHDsToPlot(self):
+        self.cphdsToPlot=[]
+        for filter in self.cphds:
+            if filter.w > 0.5:
+                self.cphdsToPlot.append(filter)
+        return self.cphdsToPlot
+    def mergeTargets(self):
+        filters_to_stay = []
+        mixed_filters = []
+        for filter in self.cphds:
+            if filter.w > self.T:
+                filters_to_stay.append(filter)
+
+        while len(filters_to_stay) != 0:
+            j = self.argMax(filters_to_stay)
+            L = []  # indexes
+            for i in range(len(filters_to_stay)):
+                if ((filters_to_stay[i].m - filters_to_stay[j].m).T @
+                    np.linalg.inv(filters_to_stay[i].P) @ (filters_to_stay[i].m - filters_to_stay[j].m)) < self.U:
+                    L.append(i)
+            # print(len(L))
+            w_mix = 0
+            for t_id in L:
+                w_mix += filters_to_stay[t_id].w
+            m_mix = np.zeros(4)
+            for t_id in L:
+                m_mix += filters_to_stay[t_id].w * filters_to_stay[t_id].m
+            m_mix /= w_mix
+            P_mix = np.zeros_like(filters_to_stay[0].P, dtype="float64")
+            for t_id in L:
+                P_mix += filters_to_stay[t_id].w * (
+                            filters_to_stay[t_id].P + np.outer((m_mix - filters_to_stay[t_id].m),
+                                                               (m_mix - filters_to_stay[t_id].m).T))
+            P_mix /= w_mix
+            mixed_filters.append(CPHD(w_mix,m_mix,P_mix))
+            removed = np.delete(filters_to_stay, L)
+            filters_to_stay = removed.tolist()
+
+        if len(mixed_filters) > self.J_max:
+            self.cphds = mixed_filters
+            self.pruneByMaxWeight(0.1)
+        else:
+            self.cphds = mixed_filters
+    def update(self, Z):
+        print("update Components")
+        self.updateComponents()
+        Z=np.array(Z).T
+        print("new Hypotheses")
+        newTargets, denominator = self.getNewHypotheses(Z)
+        print("update Old")
+        self.updateOld(denominator, Z)
+        self.updateCardinality(Z)
+        self.mergeOldAndNewTargets(newTargets)
+
+    def run(self):
+        print("run")
+        fig, ax = plt.subplots(figsize=(10, 10))
+        for t in range(self.radarMap.ndat):
+            print("t: ", t)
+            print("predict")
+            self.predict()
+            print("update")
+            self.update(self.measurements[t])
+            print("merge")
+            self.mergeTargets()
+            self.getCPHDsToPlot()
+            print("num of cphds: ", len(self.cphds))
+            print("num of cphds to plot: ", len(self.cphdsToPlot))
+
+            self.radarMap.animateRadar(t, ax)
+            for i, filter in enumerate(self.cphdsToPlot):
+                ax.plot(filter.m[0], filter.m[1], "+", color=self.model_colors[i % len(self.model_colors)], label="CPHD")
+                confidence_ellipse([filter.m[0], filter.m[1]], filter.P, ax=ax,
+                                   edgecolor=self.model_colors[i % len(self.model_colors)])
+                # print(filter.P.diagonal())
+            # print(filter.P)
+            # plt.plot(filter)
+            ax.legend(loc='center left', bbox_to_anchor=(0.9, 0.5))
+            plt.pause(0.3)
+
+        #for z in self.measurements:
+        #    print(z)
 if __name__ == '__main__':
     dt = 1
     F = np.array([[1, 0, dt, 0],
@@ -93,7 +280,7 @@ if __name__ == '__main__':
     H = np.lib.pad(H, ((0, 0), (0, 2)), 'constant', constant_values=(0))
 
     ndat = 100
-    lambd = 0.0001
+    lambd = 0.00005
     Pd = 0.9
     Ps = 0.95
 
@@ -115,9 +302,10 @@ if __name__ == '__main__':
     r.makeRadarMap(full_trajectories=2, short_trajectories=None, global_clutter=True, startFromAirport=True,
                    borned_trajectories=0)
      # r.makeRadarMap(full_trajectories=2, short_trajectories=[50], global_clutter=False, startFromAirport=False)
-    Nmax=10
-    card = np.ones(Nmax)*1/10
-    filter = CPHD_map(r, Ps, Pd,card, Nmax,card )
-    filter.elementarySymmetricPolynomial(2,[1,2,3,4])
+    Nmax=5
+    card = np.ones(Nmax)*1/Nmax
+    filter = CPHD_map(r, Ps, Pd,card, Nmax,card.copy() )
+    filter.run()
+    # filter.elementarySymmetricPolynomial(2,[1,2,3,4])
     #filter.run()
 

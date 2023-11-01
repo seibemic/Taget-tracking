@@ -460,13 +460,14 @@ class Radar(MapGenerator):
             self.addGlobalClutter(NSinglePoints=singlePoints, minMax=minMax)
 
         self.trajectoriesMeasurements = self.getAllTrueMeasurements()
-        self.getAllMeasurementsWithinRadarRadius()
+        #self.getAllMeasurementsWithinRadarRadius()
 
     def getAllMeasurementsWithinRadarRadius(self):
         """
         Method to get all measurements inside Radar radius.
         :return: measurements inside radar radius
         """
+
         if (len(self.allMeasurements) == 0):
             self.allMeasurements = self.getAllTrueMeasurements()
         for t in range(len(self.allMeasurements)):  # time
@@ -484,6 +485,7 @@ class Radar(MapGenerator):
             radarMeasurements.append(radarMeasurementsX)
             radarMeasurements.append(radarMeasurementsY)
             self.radarMeasurements.append(radarMeasurements)
+
         return self.radarMeasurements
 
     def addAirport(self, pos, cov, weight):
