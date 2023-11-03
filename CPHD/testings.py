@@ -16,13 +16,21 @@ a = [[[123.71589969726391, -31.469102634455552, 264.7997679960376, 71.9261089098
 
 z = [1,2,3,4,5]
 z= [i for i in range(10)]
+l = [6.90809070e+09, 8.59167138e+09, 3.07280200e+05, 5.72166648e+05,
+ 1.50557020e+06, 2.25355452e+01, 8.47223024e-06, 5.60593052e+06,
+ 4.02632267e-27, 2.79664543e-11, 8.67759870e-15, 3.86157350e+06,
+ 2.33331100e+03, 4.72896147e-11, 1.80600236e-12, 2.03953286e+09,
+ 7.89402991e+03, 1.34369871e-43]
 def elementarySymmetricPolynomial( j, Z):
     if j == 0:
         return 1
     comb = combinations(Z, j)
     res = 0
+    i=0
     for c in comb:
+        i+=1
         res += np.prod(np.array(c))
+    print("len: ", i)
     return res
 t1 = datetime.now().microsecond
 # print(elementarySymmetricPolynomial(2,z))
@@ -30,7 +38,11 @@ t1 = datetime.now().microsecond
 # print("alg 1: ", t2-t1)
 # print(2+3+4+5+6+8+10+12+15+20)
 
-
+print(elementarySymmetricPolynomial(len(l),l))
+X=["x1", "x2", "x3","x4"]
+C= combinations(X,3)
+for c in C:
+    print(c)
 def elementary_symmetric_function_recursive(roots, k):
     if k == 0:
         return 1
@@ -48,32 +60,25 @@ def elementary_symmetric_function_recursive(roots, k):
 # print("alg 2: ", t2-t1)
 # print(f"The {k}-th elementary symmetric function is {result}")
 
-t1 = datetime.now().microsecond
-for i in range(len(z)):
-    temp=z[0]
-    z[:-1] = z[1:]
-    # print(z[:-1])
-    z[-1] = temp
-t2 = datetime.now().microsecond
-print("alg 1: ", t2-t1)
-t1 = datetime.now().microsecond
-for i in range(len(z)):
-    Z_copy = z.copy()
-    np.delete(Z_copy, i, axis=0)
-t2 = datetime.now().microsecond
-print("alg 2: ", t2-t1)
+# t1 = datetime.now().microsecond
+# for i in range(len(z)):
+#     temp=z[0]
+#     z[:-1] = z[1:]
+#     print(z[:-1])
+    # z[-1] = temp
+# t2 = datetime.now().microsecond
+# print("alg 1: ", t2-t1)
+# t1 = datetime.now().microsecond
+# for i in range(len(z)):
+#     Z_copy = z.copy()
+#     np.delete(Z_copy, i, axis=0)
+# t2 = datetime.now().microsecond
+# print("alg 2: ", t2-t1)
 
+w=np.array([0.03846154, 0.03846154, 0.02564103, 0.02564103, 0.02564103, 0.02564103,
+ 0.02564103, 0.02564103, 0.02564103, 0.02564103, 0.02564103, 0.02564103])
+print(50/1.25e-5)
+print(600**2/0.005)
+print(w*600**2/0.005*0.95)
+print(np.arange(10,0,-1)/10.)
 
-from scipy.special import binom
-from scipy.special import perm
-n=5
-j=3
-u=1
-p=perm(n, j+u, exact=True)
-p2=math.factorial(n)/math.factorial(n-j-u)
-print(p, p2)
-l=5
-j=3
-b=binom(l,j)
-b2=math.factorial(l)/(math.factorial(j)*math.factorial(l-j))
-print(b, b2)

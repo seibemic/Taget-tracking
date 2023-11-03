@@ -36,12 +36,14 @@ class CPHD_map:
 
         self.model_colors = ["saddlebrown", "black", "magenta", "slategray"]
 
-    def calculatePredictCardinality(self, n):
+    def calculatePredictCardinality(self, n, card_copy):
+        # if n == 0:
+        #     return self.birthCard[n]
         res=0
         for j in range(n):
             innerRes=0
             for l in range(j, self.Nmax):
-                innerRes+=binom(l,j) * self.card[l] * self.ps**j * (1-self.ps)**(l-j)
+                innerRes+=binom(l,j) * card_copy[l] * self.ps**j * (1-self.ps)**(l-j)
             res += self.birthCard[n-j] * innerRes
         return res
 
@@ -57,8 +59,11 @@ class CPHD_map:
             self.cphds.append(CPHD(w_k, m_k, P_k))
     def predict(self):
         """ cardinality (23)"""
+        card_copy = self.card.copy()
         for n in range(self.Nmax):
-            self.card[n]=self.calculatePredictCardinality(n)
+            self.card[n] = self.calculatePredictCardinality(n, card_copy)
+        self.card/=sum(self.card)
+        print("predict card sum: ", sum(self.card))
 
         """ v_k|k-1 (24)"""
         self.predictionForExistingTargets()
@@ -97,17 +102,23 @@ class CPHD_map:
         #     eta = self.H @ self.cphds[j].m
         #     Q.append(mvn.pdf(z,eta,S))
         return np.array(Q)
-    def LAMBDA(self, w, Z):
+    def LAMBDA(self, w, Z, show=False):
         res = []
-        w_ = self.area_vol / self.radarMap.lambd * self.pd * w
+        w_ = (self.area_vol * self.radarMap.lambd) * self.pd * w
+        # w_ = len(Z) * self.pd * w
         for z in Z:
+            if show and 0:
+                print(w_, self.q(z))
             res.append( w_.T @ self.q(z))
         return np.array(res)
-    def PSI(self, u, w, Z, n):
+    def PSI(self, u, w, Z, n, show=False):
         res = 0
-        lambd = self.LAMBDA(w, Z)
+        lambd = self.LAMBDA(w, Z,show=show)
+        if show and 0:
+            print("lambd: ", lambd)
         for j in range(min(len(Z), n)):
             pK = poisson.pmf(int(self.area_vol * self.radarMap.lambd), len(Z) - j)+0.0001
+
             # print("PSI: ",((len(Z)-j) * pK * perm(n, j+u, exact=True)
             #        * (1-self.pd)**(n-(j+u)) / np.sum(w)**(j+u)))
             # print(self.area_vol, self.radarMap.lambd, self.area_vol*self.radarMap.lambd)
@@ -115,10 +126,16 @@ class CPHD_map:
             # print("pk: ", pK)
             # print("perm: ", perm(n, j+u, exact=True))
             # print("zbytek: ", (1-self.pd)**(n-(j+u)) / np.sum(w)**(j+u))
+            if show and 0:
+                print("pK: ", pK)
+                print("res += ", (len(Z)-j) * pK * perm(n, j+u, exact=True)
+                   * (1-self.pd)**(n-(j+u)) / np.sum(w)**(j+u))
+                print("el: ",self.elementarySymmetricPolynomial2(j, lambd))
             res += (((len(Z)-j) * pK * perm(n, j+u, exact=True)
                    * (1-self.pd)**(n-(j+u)) / np.sum(w)**(j+u))
                    * self.elementarySymmetricPolynomial2(j, lambd))
-
+        if show and 0:
+            print("res: ", res)
         return res
     def updateComponents(self):
         for target in self.cphds:
@@ -166,8 +183,11 @@ class CPHD_map:
 
     def updateCardinality(self, Z):
         w = self.getWeights()
+        # print("w: ", w)
         for i in range(self.Nmax):
-            self.card[i] *= self.PSI(0, w, Z, i)
+            # print("--------------- ", i, "---------------")
+            self.card[i] *= self.PSI(0, w, Z, i, True)
+        # print("card: ", self.card)
         self.card /= sum(self.card)
 
     def mergeOldAndNewTargets(self, newTargets):
@@ -231,7 +251,7 @@ class CPHD_map:
 
         self.cphds = mixed_filters
         if len(mixed_filters) > self.J_max:
-            self.pruneByMaxWeight(0.3)
+            self.pruneByMaxWeight(0.5)
 
     def update(self, Z):
         print("update Components")
@@ -251,15 +271,18 @@ class CPHD_map:
             print("t: ", t)
             print("predict")
             self.predict()
+            print("cardinality predict:")
+            print(self.card)
             print("update")
             self.update(self.measurements[t])
+            print("cardinality update:")
+            print(self.card)
             print("merge")
             self.mergeTargets()
             self.getCPHDsToPlot()
             print("num of cphds: ", len(self.cphds))
             print("num of cphds to plot: ", len(self.cphdsToPlot))
-            print("cardinality:")
-            print(self.card)
+
             self.radarMap.animateRadar(t, ax)
             for i, filter in enumerate(self.cphdsToPlot):
                 ax.set_title(f"time = {t}")
@@ -302,16 +325,18 @@ if __name__ == '__main__':
                            [0, sy, 0, 2 * sy]])
 
     r.addNRandomAirports(2, airportCov, 0.15)
-    r.addNBorderAirports(36, airportCov, 0.1)
+    r.addNBorderAirports(36, airportCov, 0.2)
     # seed = 123
     seed=np.random.randint(1000)
     r.addSingleTrajectory([-150, 350, 2, -2], seed, ndat, 0, False)
     r.makeRadarMap(full_trajectories=2, short_trajectories=None, global_clutter=True, startFromAirport=True,
                    borned_trajectories=0)
      # r.makeRadarMap(full_trajectories=2, short_trajectories=[50], global_clutter=False, startFromAirport=False)
-    Nmax=10
+    Nmax=8
     card = np.ones(Nmax)*1/Nmax
-    filter = CPHD_map(r, Ps, Pd,card, Nmax,card.copy() )
+    birth_card= np.arange(Nmax,0,-1.)
+    birth_card /= float(sum(birth_card))
+    filter = CPHD_map(r, Ps, Pd,card, Nmax,birth_card )
     filter.run()
     # filter.elementarySymmetricPolynomial(2,[1,2,3,4])
     #filter.run()
