@@ -139,9 +139,12 @@ class PHD_map:
 
     def updateWithMeasurements(self, time):
         Jk = len(self.phds)
+        #print("Jk: ",Jk)
         self.updateComponents2()
-        for l, z in enumerate(zip(self.measurements[time][0], self.measurements[time][1])):
-            z = np.array(z)
+        #for l, z in enumerate(zip(self.measurements[time][0], self.measurements[time][1])):
+        for l, z in enumerate(np.array(self.measurements[time]).T):
+            print("z: ",z)
+           # z = np.array(z)
             phds_sum = 0
             for j in range(Jk):
                 w = self.pd * self.phds[j].w * mvn(self.phds[j].ny, self.phds[j].S).pdf(z)
@@ -184,22 +187,25 @@ class PHD_map:
     def run(self):
         fig, ax = plt.subplots(figsize=(10, 10))
         for t in range(self.radarMap.ndat):
+            print("time: ", t)
+            print("     num of phds (before): ", len(self.phds))
             self.predictionForExistingTargets()
             self.predictionForBirthTargets()
+            print("     num of phds (after predict): ", len(self.phds))
             # self.updateComponents()
             # self.update()
             # if (t % 2 == 0):
             self.updateWithMeasurements(t)
             # self.pruneByMaxWeight(0.1)
             # self.log()
-            self.mergeTargets()
-            print("time: ", t)
-            print("     num of phds: ", len(self.phds))
+            #self.getMeasurements(t)
+            #self.mergeTargets()
+
             w=[]
             for r in self.phds:
                 w.append(r.w)
                 # print(r.P.diagonal())
-            #print(w)
+            print(w)
             self.getPHDsToPlot()
             self.radarMap.animateRadar(t, ax)
             for i, filter in enumerate(self.phdsToPlot):
@@ -225,7 +231,7 @@ if __name__ == '__main__':
     H = np.lib.pad(H, ((0, 0), (0, 2)), 'constant', constant_values=(0))
 
     ndat = 100
-    lambd = 0.0001
+    lambd = 0.0000
     Pd = 0.9
     Ps = 0.95
 
@@ -239,12 +245,12 @@ if __name__ == '__main__':
                            [sx, 0, 2 * sx, 0],
                            [0, sy, 0, 2 * sy]])
 
-    r.addNRandomAirports(2, airportCov, 0.15)
-    r.addNBorderAirports(36, airportCov, 0.1)
+    r.addNRandomAirports(1, airportCov, 0.15)
+    #r.addNBorderAirports(36, airportCov, 0.1)
     # seed = 123
     seed=np.random.randint(1000)
-    r.addSingleTrajectory([-150, 350, 2, -2], seed, ndat, 0, False)
-    r.makeRadarMap(full_trajectories=5, short_trajectories=None, global_clutter=True, startFromAirport=True,
+    #r.addSingleTrajectory([-150, 350, 2, -2], seed, ndat, 0, False)
+    r.makeRadarMap(full_trajectories=1, short_trajectories=None, global_clutter=True, startFromAirport=True,
                    borned_trajectories=0)
      # r.makeRadarMap(full_trajectories=2, short_trajectories=[50], global_clutter=False, startFromAirport=False)
 
