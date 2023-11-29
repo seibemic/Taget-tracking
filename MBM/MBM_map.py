@@ -48,6 +48,7 @@ class MBM_map:
         self.model_colors = ["saddlebrown", "black", "magenta", "slategray"]
 
     def predictionForBirthTargets(self):
+
         for airport in self.radarMap.getAirports():
             w_k = 1
             r_k = airport.weight
@@ -66,10 +67,17 @@ class MBM_map:
         print(self.measurements[time])
         return self.measurements[time]
 
-    def applyGating(self, z):
+    def applyGating(self, z,t):
         self.Zids = []
         for i, target in enumerate(self.targets):
             self.Zids.append(target.applyGating(z))
+        print("Z ids:")
+        print(self.Zids)
+        for t_z in self.Zids:
+            for inner_z in t_z:
+                print(inner_z, end=": ")
+                print(self.measurements[t][0][inner_z[0]], " ", self.measurements[t][1][inner_z[0]], end=", ")
+                print()
             # targetsZids[i] = hyp.Z_indexes
         #print("tmpZ : ", tmpZids)
         # tmpZids=tmpZids.flatten()
@@ -79,20 +87,26 @@ class MBM_map:
         # print(connectedTargets)
 
     def getHypothesis(self):
+        print("Z_ids")
+        print(self.Zids)
         combinations = list(itertools.product(*self.Zids))
 
-        unique_combinations = []
+        target_id = []
+        z_id = []
         for c in combinations:
             x = [element[0] for element in c]
             if all(x.count(element) <= 1 or element == -1 for element in x):
-                unique_combinations.append([element[1] for element in c])
+                target_id.append([element[1] for element in c])
+                z_id.append([element[0] for element in c])
 
-        return np.array(unique_combinations)
+        return np.array(target_id), np.array(z_id)
 
     def makeGlobalMatWeights(self):
-        print("hypotheses:")
-        print(np.array(self.globalHyp_mat))
-        print("........")
+
+        # print("hypotheses Z:")
+        # for i, hyp in enumerate(np.array(self.globalHyp_mat_z)):
+        #     print(i, ": ", hyp)
+        # print("........")
         weights=np.zeros_like(np.array(self.globalHyp_mat,dtype="float32").T)
         for i, target in enumerate(np.array(self.globalHyp_mat).T):
             for j, target_id in enumerate(target):
@@ -102,11 +116,22 @@ class MBM_map:
                 weights[i][j] = self.targets[i].trackers[target_id].w
         self.globalHyp_w = np.zeros_like(weights[0])
         # print("weights:")
+
         # print(weights)
         # print("...........")
         for i,w in enumerate(weights.T):
             self.globalHyp_w[i] = np.prod(w)
         self.globalHyp_w /= sum(self.globalHyp_w)
+        # print(self.globalHyp_w)
+        # print("hypotheses W:")
+        # for i, hyp in enumerate(np.array(self.globalHyp_w)):
+        #     print(i, ": ", hyp)
+        print("hypotheses    |    hypotheses Z     |     hypotheses W:")
+        i=0
+        for hyp, hyp_z, hyp_w in (zip(self.globalHyp_mat, self.globalHyp_mat_z, self.globalHyp_w)):
+            print(i,": ", hyp, " | ", hyp_z, "  |  ", hyp_w)
+            i+=1
+        print("--------------------")
 
     def makeCostMatrix(self):
         ## ADD measurements outside gating
@@ -126,18 +151,62 @@ class MBM_map:
     def selectKBestHypothese(self, K):
         # print("Global hyp_w: ")
         # print(self.globalHyp_w)
-        K_best = np.argsort(self.globalHyp_w)[-min(K, len(self.globalHyp_w)):]
+        # K_best = sorted(self.globalHyp_w,reverse=True)#[:min(K, len(self.globalHyp_w))]
+        # print("K_best")
+        # print(K_best)
+        K_best = np.argsort(-self.globalHyp_w)[:min(K, len(self.globalHyp_w))]
+        # print("K_best")
+        # print(K_best)
         K_bestHypothesis = []
         for i, k in enumerate(K_best):
             K_bestHypothesis.append(self.globalHyp_mat[k])
         self.K_bestHypothesis = np.array(K_bestHypothesis)
+        print("K best hyp: ")
+        print(self.K_bestHypothesis)
         self.bestHypothesis = self.K_bestHypothesis[0]
+        print("best hyp:")
+        print(self.bestHypothesis)
 
         self.bestTrackers = []
         for i, tracker_id in enumerate(self.bestHypothesis):
             self.bestTrackers.append(self.targets[i].trackers[tracker_id])
 
 
+    def pruneByExistenceProbabiltyAndWeights(self):
+        # prune by r
+        new_z = []
+        for j, target in enumerate(self.targets):
+            indexes = []
+            for i, hyp in enumerate(target.trackers):
+                if hyp.r < 1e-2 or hyp.w < 1e-2:
+                    indexes.append(i)
+            # lowerEl = len([x for x in indexes if x < self.bestHypothesis[j]])
+            # self.bestHypothesis[j] -= lowerEl
+            for index in sorted(indexes, reverse=True):
+                del target.trackers[index]
+
+            temp_z = []
+            for i, local_hyp in enumerate(self.Zids[j]):
+                if local_hyp[1] not in indexes:
+                    temp_z.append(self.Zids[j][i])
+            if len(temp_z) != 0:
+                temp_z = np.array(temp_z)
+                temp_z.T[1] = np.arange(0, len(temp_z.T[1]), 1)
+                temp_z = temp_z.tolist()
+                new_z.append(temp_z)
+        self.Zids = new_z
+                # delete targets with no localHypothese
+        indexes = []
+        for i, target in enumerate(self.targets):
+            if len(target.trackers) == 0:
+                indexes.append(i)
+                    # del self.bestHypothesis[i]
+        for index in sorted(indexes, reverse=True):
+            del self.targets[index]
+
+            # print("Targets after pruning by r: ")
+            # for i, target in enumerate(self.targets):
+            #     print(i, " :", len(target.trackers))
     def pruneTargets(self):
         # print("K_best: ")
         # print(self.K_bestHypothesis)
@@ -146,9 +215,13 @@ class MBM_map:
         # prune by hypotheses
         for i, target in enumerate(self.targets):
             indexes = set((self.K_bestHypothesis.T)[i])
-            # lowerEl = len([x for x in indexes if x < self.bestHypothesis[i]])
-            # self.bestHypothesis[i] -= lowerEl
+            deleted = set((self.globalHyp_mat.T)[i])-indexes
+            # print("indexes: ", indexes)
+            # print("deleted: ", deleted)
+            lowerEl = len([x for x in deleted if x < self.bestHypothesis[i]])
+            self.bestHypothesis[i] -= lowerEl
             target.trackers = [e for j, e in enumerate(target.trackers) if j in indexes]
+            # print(i, " final len: ", len(target.trackers))
 
         # for i, target in enumerate(self.targets):
         #     print(i, " :", len(target.trackers))
@@ -159,19 +232,8 @@ class MBM_map:
         #     print(i, " :", len(target.trackers))
 
 
-        # prune by r
-        for j, target in enumerate(self.targets):
-            indexes = []
-            for i, hyp in enumerate(target.trackers):
-                if hyp.r < 10e-5:
-                    indexes.append(i)
-            # lowerEl = len([x for x in indexes if x < self.bestHypothesis[j]])
-            # self.bestHypothesis[j] -= lowerEl
-            for index in sorted(indexes, reverse=True):
-                del target.trackers[index]
-        # print("Targets after pruning by r: ")
-        # for i, target in enumerate(self.targets):
-        #     print(i, " :", len(target.trackers))
+
+
 
 
         # delete targets with no localHypothese
@@ -179,7 +241,7 @@ class MBM_map:
         for i, target in enumerate(self.targets):
             if len(target.trackers) == 0:
                 indexes.append(i)
-                # del self.bestHypothesis[i]
+                del self.bestHypothesis[i]
         for index in sorted(indexes, reverse=True):
             del self.targets[index]
 
@@ -202,7 +264,7 @@ class MBM_map:
         self.updateComponents()
         z = np.array(self.measurements[time]).T
         # print("Z: ", z)
-        self.applyGating(z)
+        self.applyGating(z,time)
         # connectedTargets =
         self.update()
         #self.makeHypotheses(connectedTargets)
@@ -211,7 +273,9 @@ class MBM_map:
 
         #for l, z in enumerate(np.array(self.measurements[time]).T):
 
-
+    def logWeights(self):
+        for target in self.targets:
+            target.logWeights()
     """
     def updateWithMeasurements(self, time):
         Jk = len(self.phds)
@@ -240,6 +304,12 @@ class MBM_map:
 
 
     def run(self):
+        import os
+        import glob
+
+        files = glob.glob('./pics/*.png')
+        for f in files:
+            os.remove(f)
         fig, ax = plt.subplots(figsize=(10, 10))
         for t in range(self.radarMap.ndat):
             print("-----------------time: ", t,"---------------")
@@ -250,7 +320,11 @@ class MBM_map:
 
             self.updateWithMeasurements(t)
 
-            self.globalHyp_mat=self.getHypothesis()
+
+            # self.pruneByWeights(10e-5)
+
+            self.pruneByExistenceProbabiltyAndWeights()
+            self.globalHyp_mat, self.globalHyp_mat_z=self.getHypothesis()
             self.makeGlobalMatWeights()
             # print(self.globalHyp_w)
             self.selectKBestHypothese(10)
@@ -268,14 +342,15 @@ class MBM_map:
                 print(i,": ")
                 for hyp in target.trackers:
                     try:
-                        print("    r: ", hyp.r, " w: ", hyp.w, "z: ", hyp.updatedBy)
+                        print("    r: ", hyp.r, " w: ", hyp.w, "P: ", np.diagonal(hyp.P))
                     except:
                         print("    r: ", hyp.r, " w: ", hyp.w, "z: ")
 
-            for i, target in enumerate(self.bestTrackers):
-                ax.plot(target.m[0],target.m[1], "+", color=self.model_colors[i % len(self.model_colors)], label="MBM")
-                confidence_ellipse([target.m[0], target.m[1]],
-                                   target.P, ax=ax, edgecolor = self.model_colors[i % len(self.model_colors)])
+            for i, target_id in enumerate(self.bestHypothesis):
+                ax.plot(self.targets[i].trackers[target_id].m[0],self.targets[i].trackers[target_id].m[1], "+",
+                        color=self.model_colors[i % len(self.model_colors)], label=f"MBM_{i}")
+                confidence_ellipse([self.targets[i].trackers[target_id].m[0], self.targets[i].trackers[target_id].m[1]],
+                                   self.targets[i].trackers[target_id].P, ax=ax, edgecolor = self.model_colors[i % len(self.model_colors)])
             # for i, target in enumerate(self.targets):
             #     for j, tracker in enumerate(target.trackers):
             #     ax.plot(filter.m[0], filter.m[1], "+", color=self.model_colors[i % len(self.model_colors)], label="PHD")
@@ -284,7 +359,9 @@ class MBM_map:
                 # print(filter.P.diagonal())
             # print(filter.P)
             # plt.plot(filter)
-            # ax.legend(loc='center left', bbox_to_anchor=(0.9, 0.5))
+            ax.legend(loc='center left', bbox_to_anchor=(0.9, 0.5))
+            fig.savefig(f'./pics/t_{t}.png')
+            self.logWeights()
             plt.waitforbuttonpress()
             #plt.pause(2)
 
@@ -301,7 +378,7 @@ if __name__ == '__main__':
     H = np.lib.pad(H, ((0, 0), (0, 2)), 'constant', constant_values=(0))
 
     ndat = 100
-    lambd = 0.0001
+    lambd = 0.000000000001
     Pd = 0.9
     Ps = 0.95
 

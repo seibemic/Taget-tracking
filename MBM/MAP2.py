@@ -588,11 +588,12 @@ class Radar(MapGenerator):
                         label=f"True trajectory, T={traj.startTime}")
         if showMapClutter:
             ax.plot(self.allMeasurements[t][0], self.allMeasurements[t][1], "*", color="gold", label="Map Clutter")
-            for i in range(len(self.allMeasurements[t][0])):
-                ax.annotate(i, (self.allMeasurements[t][0][i], self.allMeasurements[t][1][i]))
+
         if showRadarClutter:
             ax.plot(self.radarMeasurements[t][0], self.radarMeasurements[t][1], "*", color="orange",
                     label="Radar Clutter")
+            for i in range(len(self.radarMeasurements[t][0])):
+                ax.annotate(i, (self.radarMeasurements[t][0][i], self.radarMeasurements[t][1][i]))
         if showTrueTrajectoriesMeasurements:
             ax.plot(self.trajectoriesMeasurements[t][0], self.trajectoriesMeasurements[t][1], "*r",
                     label="Trajectory measurement")

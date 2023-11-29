@@ -77,8 +77,11 @@ def elementary_symmetric_function_recursive(roots, k):
 
 w=np.array([0.03846154, 0.03846154, 0.02564103, 0.02564103, 0.02564103, 0.02564103,
  0.02564103, 0.02564103, 0.02564103, 0.02564103, 0.02564103, 0.02564103])
-print(50/1.25e-5)
-print(600**2/0.005)
-print(w*600**2/0.005*0.95)
-print(np.arange(10,0,-1)/10.)
+# print(50/1.25e-5)
+# print(600**2/0.005)
+# print(w*600**2/0.005*0.95)
+# print(np.arange(10,0,-1)/10.)
+Nmax = 4
 
+for i in range(Nmax+1):
+    print(i, Nmax-i)

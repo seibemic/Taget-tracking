@@ -8,6 +8,7 @@ class LocalHypotheses:
         self.m = m
         self.P = P
         self.updatedBy = updatedBy
+
         # self.P_aposterior=self.P_aprior
 
 
@@ -38,12 +39,14 @@ class LocalHypotheses:
         self.Z_gating = []
         covInv = np.linalg.inv(self.S)
         gamma = chi2.ppf(Pg, df=2)
+        self.Z_indexes.append([-1, counter])
+        counter+=1
         for i, z_ in enumerate(z):
             # print((z_ - self.ny).T @ covInv @ (z_ - self.ny), " ", gamma)
             if ((z_ - self.ny).T @ covInv @ (z_ - self.ny)) <= gamma:
                 self.Z_gating.append(z_)
                 self.Z_indexes.append([i, counter])
                 counter +=1
-        self.Z_indexes.append([-1, counter])
-        counter +=1
+
+        # counter +=1
         return counter

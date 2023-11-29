@@ -1,3 +1,5 @@
+import math
+
 from LocalHypotheses import LocalHypotheses
 from scipy.stats import multivariate_normal as mvn
 import numpy as np
@@ -44,12 +46,15 @@ class Target:
                 temp_w.append(w)
                 temp_map.append(cnt)
                 cnt +=1
-            self.trackersMeasurement_w.append(temp_w)
-            self.mapping.append(temp_map)
+            # self.trackersMeasurement_w.append(temp_w)
+            # self.mapping.append(temp_map)
             self.trackers[i].update(pd)# update no measurement
             self.trackersNoMeasurement_w.append(self.trackers[i].w)
-            cnt +=1
+            # cnt +=1
 
+    def logWeights(self):
+        for tracker in self.trackers:
+            tracker.w = math.log1p(tracker.w)
     def getBest(self):
         best = 0
         for i, tracker in self.trackers:

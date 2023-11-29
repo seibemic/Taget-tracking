@@ -132,9 +132,36 @@ a=[1,2,2,3,3,4,5,6]
 best = 4
 a =set(a)
 j2 = [x for x in a if x < best]
-print("x: ",j2)
+# print("x: ",j2)
 # indexes = [2, 3, 5]
 # for index in sorted(indexes, reverse=True):
 #     del a[index]
 #
 # print(a)
+
+w = np.array([0.15349248,0.12577309,0.2494964,0.049825754,0.0124701755])
+K=2
+K_best = np.argsort(-w)[:min(K, len(w))]
+#print(K_best)
+
+z_ids = [[[-1, 0], [0, 1], [1, 2], [-1, 3], [0, 4], [1, 5]], [[-1, 0], [0, 1], [1, 2]],[[-1, 0], [0, 1], [1, 2],[2,3]]]
+indexes = [0,1,2]
+new_z = []
+for j in range(len(z_ids)):
+    temp_z = []
+    for i, local_hyp in enumerate(z_ids[j]):
+        if local_hyp[1] not in indexes:
+            temp_z.append(z_ids[j][i])
+
+    if len(temp_z) != 0:
+        print(temp_z)
+        temp_z = np.array(temp_z)
+        temp_z.T[1] = np.arange(0,len(temp_z.T[1]),1)
+        temp_z = temp_z.tolist()
+        # print(temp_z)
+        new_z.append(temp_z)
+    #     del z_ids[j]
+print(new_z)
+
+print(10**(-3))
+print(1e-3)

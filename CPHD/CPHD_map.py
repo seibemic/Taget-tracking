@@ -35,12 +35,9 @@ class CPHD_map:
         self.J_max = Nmax
 
         self.model_colors = ["saddlebrown", "black", "magenta", "slategray"]
-
     def calculatePredictCardinality(self, n, card_copy):
-        # if n == 0:
-        #     return self.birthCard[n]
         res=0
-        for j in range(n):
+        for j in range(n+1):
             innerRes=0
             for l in range(j, self.Nmax):
                 innerRes+=binom(l,j) * card_copy[l] * self.ps**j * (1-self.ps)**(l-j)
@@ -62,7 +59,7 @@ class CPHD_map:
         card_copy = self.card.copy()
         for n in range(self.Nmax):
             self.card[n] = self.calculatePredictCardinality(n, card_copy)
-        self.card/=sum(self.card)
+        self.card /= sum(self.card)
         print("predict card sum: ", sum(self.card))
 
         """ v_k|k-1 (24)"""
@@ -104,7 +101,7 @@ class CPHD_map:
         return np.array(Q)
     def LAMBDA(self, w, Z, show=False):
         res = []
-        w_ = (self.area_vol * self.radarMap.lambd) * self.pd * w
+        w_ = (self.area_vol * self.radarMap.lambd) / self.radarMap.lambd * self.pd * w
         # w_ = len(Z) * self.pd * w
         for z in Z:
             if show and 0:
@@ -116,7 +113,7 @@ class CPHD_map:
         lambd = self.LAMBDA(w, Z,show=show)
         if show and 0:
             print("lambd: ", lambd)
-        for j in range(min(len(Z), n)):
+        for j in range(min(len(Z), n+1)):
             pK = poisson.pmf(int(self.area_vol * self.radarMap.lambd), len(Z) - j)+0.0001
 
             # print("PSI: ",((len(Z)-j) * pK * perm(n, j+u, exact=True)
@@ -333,9 +330,12 @@ if __name__ == '__main__':
                    borned_trajectories=0)
      # r.makeRadarMap(full_trajectories=2, short_trajectories=[50], global_clutter=False, startFromAirport=False)
     Nmax=8
-    card = np.ones(Nmax)*1/Nmax
-    birth_card= np.arange(Nmax,0,-1.)
-    birth_card /= float(sum(birth_card))
+    card = np.ones(Nmax+1)*1/Nmax
+
+    birth_card = np.zeros(Nmax+1)
+    birth_w = 0.03
+    for i in range(Nmax+1):
+        birth_card[i] = binom(Nmax,i) * birth_w**(i) * (1-birth_w)**(Nmax-i)
     filter = CPHD_map(r, Ps, Pd,card, Nmax,birth_card )
     filter.run()
     # filter.elementarySymmetricPolynomial(2,[1,2,3,4])

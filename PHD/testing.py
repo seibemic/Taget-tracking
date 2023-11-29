@@ -52,3 +52,5 @@ print("outer = \n", np.outer(a,b))
 print("a*b + outer = \n",  a*b.T + np.outer(a,b))
 #t=mvn.pdf(z, eta, S)
 #print("T: ", t)
+
+
