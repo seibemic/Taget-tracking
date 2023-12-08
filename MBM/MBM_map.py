@@ -6,7 +6,7 @@ from MAP2 import Radar
 import itertools
 from Target import Target
 import math
-
+from scipy.special import logsumexp
 class MBM_map:
     def __init__(self, radar, ps, pd):
         self.radarMap = radar
@@ -76,7 +76,10 @@ class MBM_map:
         for t_z in self.Zids:
             for inner_z in t_z:
                 print(inner_z, end=": ")
-                print(self.measurements[t][0][inner_z[0]], " ", self.measurements[t][1][inner_z[0]], end=", ")
+                if inner_z[0] == -1:
+                    print(-1, end=", ")
+                else:
+                    print(self.measurements[t][0][inner_z[0]], " ", self.measurements[t][1][inner_z[0]], end=", ")
                 print()
             # targetsZids[i] = hyp.Z_indexes
         #print("tmpZ : ", tmpZids)
@@ -89,8 +92,12 @@ class MBM_map:
     def getHypothesis(self):
         print("Z_ids")
         print(self.Zids)
+        print("Targets lens:")
+        for i, target in enumerate(self.targets):
+            print(len(target.trackers), end=", ")
+        print()
         combinations = list(itertools.product(*self.Zids))
-
+        print("num of combinations:", len(combinations))
         target_id = []
         z_id = []
         for c in combinations:
@@ -98,7 +105,7 @@ class MBM_map:
             if all(x.count(element) <= 1 or element == -1 for element in x):
                 target_id.append([element[1] for element in c])
                 z_id.append([element[0] for element in c])
-
+        print("num of combinations after:", len(target_id))
         return np.array(target_id), np.array(z_id)
 
     def makeGlobalMatWeights(self):
@@ -107,6 +114,8 @@ class MBM_map:
         # for i, hyp in enumerate(np.array(self.globalHyp_mat_z)):
         #     print(i, ": ", hyp)
         # print("........")
+        # print("Global hyp mat: ")
+        # print(self.globalHyp_mat)
         weights=np.zeros_like(np.array(self.globalHyp_mat,dtype="float32").T)
         for i, target in enumerate(np.array(self.globalHyp_mat).T):
             for j, target_id in enumerate(target):
@@ -120,16 +129,25 @@ class MBM_map:
         # print(weights)
         # print("...........")
         for i,w in enumerate(weights.T):
-            self.globalHyp_w[i] = np.prod(w)
-        self.globalHyp_w /= sum(self.globalHyp_w)
+            self.globalHyp_w[i] = np.sum(w)
+        #print("logsumexp: ", logsumexp(self.globalHyp_w))
+        self.globalHyp_w /= logsumexp(self.globalHyp_w)
+        #self.globalHyp_w /= sum(self.globalHyp_w)
         # print(self.globalHyp_w)
         # print("hypotheses W:")
         # for i, hyp in enumerate(np.array(self.globalHyp_w)):
         #     print(i, ": ", hyp)
-        print("hypotheses    |    hypotheses Z     |     hypotheses W:")
+        print("hypotheses    |    hypotheses Z     |     hypotheses W    |    targets W   |   targets r")
         i=0
         for hyp, hyp_z, hyp_w in (zip(self.globalHyp_mat, self.globalHyp_mat_z, self.globalHyp_w)):
-            print(i,": ", hyp, " | ", hyp_z, "  |  ", hyp_w)
+            print(i,": ", hyp, " | ", hyp_z, "  |  ", hyp_w, end="   |   ")
+            for j, x in enumerate(hyp):
+                print(self.targets[j].trackers[x].w, end = ", ")
+            print("    |    ", end = " ")
+            for j, x in enumerate(hyp):
+                print(self.targets[j].trackers[x].r, end=", ")
+            print()
+
             i+=1
         print("--------------------")
 
@@ -213,16 +231,29 @@ class MBM_map:
         # print("best: ")
         # print(self.bestHypothesis)
         # prune by hypotheses
+        lens = []
+        for i, target in enumerate(self.targets):
+            lens.append(len(target.trackers))
+        print("lens before hyp prune: ", lens)
         for i, target in enumerate(self.targets):
             indexes = set((self.K_bestHypothesis.T)[i])
             deleted = set((self.globalHyp_mat.T)[i])-indexes
+            # print("deleted: ", deleted)
+            # r = set([x for x in range(0, self.bestHypothesis[i])])
+            # deleted = r - deleted
+            # print("deleted: ", deleted)
             # print("indexes: ", indexes)
             # print("deleted: ", deleted)
             lowerEl = len([x for x in deleted if x < self.bestHypothesis[i]])
             self.bestHypothesis[i] -= lowerEl
             target.trackers = [e for j, e in enumerate(target.trackers) if j in indexes]
+            # if len(target.trackers) == 1:
+            #     self.bestHypothesis[i] = 0
             # print(i, " final len: ", len(target.trackers))
-
+        lens = []
+        for i, target in enumerate(self.targets):
+            lens.append(len(target.trackers))
+        print("lens after hyp prune: ", lens)
         # for i, target in enumerate(self.targets):
         #     print(i, " :", len(target.trackers))
         #     for hyp in target.trackers:
@@ -315,6 +346,7 @@ class MBM_map:
             print("-----------------time: ", t,"---------------")
             #print("     num of phds (before): ", len(self.mbms))
             self.predictionForExistingTargets()
+           # if t %10==0 or 1:
             self.predictionForBirthTargets()
             #print("     num of phds (after predict): ", len(self.mbms))
 
@@ -345,7 +377,7 @@ class MBM_map:
                         print("    r: ", hyp.r, " w: ", hyp.w, "P: ", np.diagonal(hyp.P))
                     except:
                         print("    r: ", hyp.r, " w: ", hyp.w, "z: ")
-
+            ax.set_title(f"{t}")
             for i, target_id in enumerate(self.bestHypothesis):
                 ax.plot(self.targets[i].trackers[target_id].m[0],self.targets[i].trackers[target_id].m[1], "+",
                         color=self.model_colors[i % len(self.model_colors)], label=f"MBM_{i}")
@@ -361,7 +393,7 @@ class MBM_map:
             # plt.plot(filter)
             ax.legend(loc='center left', bbox_to_anchor=(0.9, 0.5))
             fig.savefig(f'./pics/t_{t}.png')
-            self.logWeights()
+            #self.logWeights()
             plt.waitforbuttonpress()
             #plt.pause(2)
 
@@ -378,7 +410,7 @@ if __name__ == '__main__':
     H = np.lib.pad(H, ((0, 0), (0, 2)), 'constant', constant_values=(0))
 
     ndat = 100
-    lambd = 0.000000000001
+    lambd = 0.0001
     Pd = 0.9
     Ps = 0.95
 
@@ -392,12 +424,12 @@ if __name__ == '__main__':
                            [sx, 0, 2 * sx, 0],
                            [0, sy, 0, 2 * sy]])
 
-    r.addNRandomAirports(1, airportCov, 0.15)
+    r.addNRandomAirports(2, airportCov, 0.15)
     #r.addNBorderAirports(36, airportCov, 0.1)
     # seed = 123
     seed=np.random.randint(1000)
     #r.addSingleTrajectory([-150, 350, 2, -2], seed, ndat, 0, False)
-    r.makeRadarMap(full_trajectories=2, short_trajectories=None, global_clutter=True, startFromAirport=True,
+    r.makeRadarMap(full_trajectories=3, short_trajectories=None, global_clutter=True, startFromAirport=True,
                    borned_trajectories=0)
      # r.makeRadarMap(full_trajectories=2, short_trajectories=[50], global_clutter=False, startFromAirport=False)
 

@@ -163,5 +163,6 @@ for j in range(len(z_ids)):
     #     del z_ids[j]
 print(new_z)
 
-print(10**(-3))
-print(1e-3)
+r=0.15
+pd=0.9
+print(np.log((1-r + r * (1 - pd))))

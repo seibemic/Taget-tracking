@@ -3,6 +3,11 @@ from scipy.stats import chi2
 
 class LocalHypotheses:
     def __init__(self, w, r, m, P, updatedBy):
+        self.Z_gating = None
+        self.Z_indexes = None
+        self.K = None
+        self.ny = None
+        self.P_apost = None
         self.r = r
         self.w = w
         self.m = m
@@ -27,7 +32,7 @@ class LocalHypotheses:
 
     def update(self, pd):
         # print("update: ", self.w, " ", self.r, " ", pd)
-        self.w = self.w * (1-self.r + self.r * (1 - pd))
+        self.w = (self.w) + np.log((1-self.r + self.r * (1 - pd)))
         # print("     ", self.w)
         self.r = (self.r*(1-pd)) / (1-self.r + self.r*(1-pd))
         self.m = self.m
@@ -41,6 +46,30 @@ class LocalHypotheses:
         gamma = chi2.ppf(Pg, df=2)
         self.Z_indexes.append([-1, counter])
         counter+=1
+        for i, z_ in enumerate(z):
+            # print((z_ - self.ny).T @ covInv @ (z_ - self.ny), " ", gamma)
+            if ((z_ - self.ny).T @ covInv @ (z_ - self.ny)) <= gamma:
+                self.Z_gating.append(z_)
+                self.Z_indexes.append([i, counter])
+                counter +=1
+
+        # counter +=1
+        return counter
+
+    def applyGating0(self, z, counter, Pg=0.9):
+        self.Z_indexes = []
+        self.Z_indexes.append([-1, counter])
+        counter+=1
+        # counter +=1
+        return counter
+
+    def applyGating1(self, z, counter, Pg=0.95):
+        self.Z_indexes = []
+        self.Z_gating = []
+        covInv = np.linalg.inv(self.S)
+        gamma = chi2.ppf(Pg, df=2)
+        # self.Z_indexes.append([-1, counter])
+        # counter+=1
         for i, z_ in enumerate(z):
             # print((z_ - self.ny).T @ covInv @ (z_ - self.ny), " ", gamma)
             if ((z_ - self.ny).T @ covInv @ (z_ - self.ny)) <= gamma:
