@@ -4,12 +4,12 @@ from scipy.stats import multivariate_normal as mvn
 from confidence_ellipse import confidence_ellipse
 from MAP2 import Radar
 import itertools
-from Target import Target
+from Target import BernoulliTarget, PoissonTarget
 import math
 from scipy.special import logsumexp
 
 
-class MBM_map:
+class PMBM_map:
     def __init__(self, radar, ps, pd):
         self.U = 4
         self.radarMap = radar
@@ -22,25 +22,31 @@ class MBM_map:
         self.lambd = radar.lambd
         self.targets = []
         self.Ptargets = []
-        self.mbmsToPlot = []
+        self.pmbmsToPlot = []
         self.measurements = radar.getAllMeasurementsWithinRadarRadius()
         self.globalHyp_mat = [[]]
         self.globalHyp_w = []
-
+        self.Zids = []
         self.model_colors = ["saddlebrown", "black", "magenta", "slategray"]
 
     def predictionForBirthTargets(self):
 
         for airport in self.radarMap.getAirports():
-            w_k = 1
-            r_k = airport.weight
-            m_k = np.array(airport.pos)
-            P_k = airport.cov
-            self.targets.append(Target(len(self.targets), w_k, r_k, m_k, P_k))
+            # w_k = 1
+            # r_k = airport.weight
+            # m_k = np.array(airport.pos)
+            # P_k = airport.cov
+            # self.targets.append(BernoulliTarget(w_k, r_k, m_k, P_k))
+            w = airport.weight
+            m = np.array(airport.pos)
+            P = airport.cov
+            self.Ptargets.append(PoissonTarget(w,m, P))
 
     def predictionForExistingTargets(self):
         for target in self.targets:
             target.predict(self.ps, self.F, self.Q)
+        for targer in self.Ptargets:
+            targer.predict(self.ps, self.F, self.Q)
         # for i in range(len(self.phds)):
         #     self.phds[i].predict(self.ps, self.F, self.Q)
 
@@ -49,7 +55,7 @@ class MBM_map:
         return self.measurements[time]
 
     def applyGating(self, z, t):
-        self.Zids = []
+
         for i, target in enumerate(self.targets):
             self.Zids.append(target.applyGating(z))
 
@@ -175,133 +181,13 @@ class MBM_map:
             target.update(self.pd, self.lambd)
 
     def updateWithMeasurements(self, time):
+
+
         self.updateComponents()
         z = np.array(self.measurements[time]).T
         self.applyGating(z, time)
         self.update()
 
-
-
-    def KLdistance(self, t1, t2):
-        KL = 0
-        p2_inv = np.linalg.inv(t2.P)
-        det1 = np.linalg.det(t1.P)
-        det2 = np.linalg.det(t2.P)
-        nx = len(t1.P)
-        if t1.r == 0 or t1.r == 1 or t2.r == 0 or t2.r == 1:
-            KL = t1.r / 2 * (np.trace(p2_inv @ t1.P) - np.log(det1 / det2) - nx
-                                + (t2.m - t1.m).T @ p2_inv @ (t2.m - t1.m))
-        else:
-            KL = ((1 - t1.r) * np.log((1 - t1.r) / (1 - t2.r))
-                  + t1.r * np.log(t1.r / t2.r)
-                  + t1.r / 2 * (np.trace(p2_inv @ t1.P) - np.log(det1 / det2) - nx
-                                + (t2.m - t1.m).T @ p2_inv @ (t2.m - t1.m)))
-
-        return KL
-
-    def mergeLocalHypotheses(self):
-        for target in self.targets:
-            w = len(target.trackers)
-            if w == 1:
-                continue
-            KL_matrix = np.ones(shape=(w, w))*10000
-            for i, locHyp in enumerate(target.trackers):
-                for j, locHyp2 in enumerate(target.trackers):
-                    if i != j:
-                        KL_matrix[i, j] = self.KLdistance(locHyp, locHyp2)
-            print("KL:")
-            print(KL_matrix)
-            print("argmin:")
-            ind = np.unravel_index(np.argmin(KL_matrix, axis=None), KL_matrix.shape)
-            print(ind)
-            print(KL_matrix[ind])
-
-    def argMax(self, filtres):
-        maX = 0
-        argmaX = 0
-        for i, filter in enumerate(filtres):
-            if filter.w > maX:
-                maX = filter.w
-                argmaX = i
-        return argmaX
-
-    def findIndicesOfSameValues(self,arr):
-        index_dict = {}
-
-        for i, value in enumerate(arr):
-            if value in index_dict:
-                index_dict[value].append(i)
-            else:
-                index_dict[value] = [i]
-
-        result = list(index_dict.values())
-        return result
-
-    def mergeBernoulli(self):
-        w_mixes = []
-        m_mixes = []
-        r_mixes =[]
-        P_mixes =[]
-        components_mixes=[]
-        allLocHyp = []
-        component_ids = []
-        hypos_id = []
-        for i, target in enumerate(self.targets):
-            for j, hyp in enumerate(target.trackers):
-                allLocHyp.append(hyp)
-                component_ids.append(i)
-                hypos_id.append(j)
-
-        while len(allLocHyp) != 0:
-            j = self.argMax(allLocHyp)
-            L = []  # indexes
-            for i in range(len(allLocHyp)):
-                if ((allLocHyp[i].m - allLocHyp[j].m).T @
-                    np.linalg.inv(allLocHyp[i].P) @ (allLocHyp[i].m - allLocHyp[j].m)) < self.U:
-                    L.append(i)
-            w_mix = 0
-            for t_id in L:
-                w_mix += allLocHyp[t_id].w
-            m_mix = np.zeros(4)
-            for t_id in L:
-                m_mix += allLocHyp[t_id].w * allLocHyp[t_id].m
-            m_mix /= w_mix
-            P_mix = np.zeros_like(allLocHyp[0].P, dtype="float64")
-
-            for t_id in L:
-                P_mix += allLocHyp[t_id].w * (
-                        allLocHyp[t_id].P + np.outer((m_mix - allLocHyp[t_id].m),
-                                                           (m_mix - allLocHyp[t_id].m).T))
-            P_mix /= w_mix
-            # print("P mix: ", P_mix)
-            print("rs")
-            print([allLocHyp[x].r for x in L])
-            print("ms")
-            print([allLocHyp[x].m for x in L])
-            r_mix= np.max([allLocHyp[x].r for x in L])
-            w_mixes.append(w_mix)
-            r_mixes.append(r_mix)
-            P_mixes.append(P_mix)
-            m_mixes.append(m_mix)
-            components_mixes.append(component_ids[j])
-
-            removed = np.delete(allLocHyp, L)
-            component_ids = np.delete(component_ids, L)
-            allLocHyp = removed.tolist()
-
-        # print(components_mixes)
-
-        print("r_mixes")
-        print(r_mixes)
-        indexes = self.findIndicesOfSameValues(components_mixes)
-        print(indexes)
-        self.targets = []
-        for i, target in enumerate(indexes):
-            for j, hyp in enumerate(target):
-                if j == 0:
-                    self.targets.append(Target(len(self.targets), w_mixes[hyp], r_mixes[hyp], m_mixes[hyp], P_mixes[hyp]))
-                else:
-                    self.targets[i].add(w_mixes[hyp], r_mixes[hyp], m_mixes[hyp], P_mixes[hyp])
 
     def run(self):
 
@@ -369,5 +255,5 @@ if __name__ == '__main__':
                    borned_trajectories=0)
     # r.makeRadarMap(full_trajectories=2, short_trajectories=[50], global_clutter=False, startFromAirport=False)
 
-    filter = MBM_map(r, Ps, Pd)
+    filter = PMBM_map(r, Ps, Pd)
     filter.run()

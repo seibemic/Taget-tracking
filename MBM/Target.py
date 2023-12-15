@@ -9,7 +9,8 @@ class Target:
         self.origin_id = id
         self.trackers = []
         self.trackers.append(LocalHypotheses(w_k, r_k, m_k, P_k, updatedBy=-1))
-
+    def add(self,w_k, r_k, m_k, P_k):
+        self.trackers.append(LocalHypotheses(w_k, r_k, m_k, P_k, updatedBy=-1))
     def predict(self, ps, F, Q):
         for target in self.trackers:
             target.predict(ps, F, Q)
@@ -49,8 +50,8 @@ class Target:
             # print(tmpTrackers[i].P)
             # print(tmpTrackers[i].P_apost)
           #  print(tmpTrackers[i].P_apost)
-            cnt+=1
-            for j,z in enumerate(self.trackers[i].Z_gating): # measuremets for i-th target
+            cnt += 1
+            for j, z in enumerate(self.trackers[i].Z_gating): # measuremets for i-th target
                 r = 1
                 # print("NEW update: ", self.trackers[i].w, " ", self.trackers[i].r, " ", mvn(self.trackers[i].ny, self.trackers[i].S).pdf(z), " ", lambd)
                 w = ((self.trackers[i].w) + np.log(self.trackers[i].r * pd)
@@ -66,21 +67,11 @@ class Target:
             # self.trackersMeasurement_w.append(temp_w)
             # self.mapping.append(temp_map)
             # tmpTrackers[i].update(pd)
+            print("update no measurement")
+            print(self.trackers[i].r)
             self.trackers[i].update(pd)# update no measurement
             self.trackersNoMeasurement_w.append(self.trackers[i].w)
 
         # self.trackers = tmpTrackers
             # cnt +=1
-
-    def logWeights(self):
-        for tracker in self.trackers:
-            tracker.w = math.log1p(tracker.w)
-    def getBest(self):
-        best = 0
-        for i, tracker in self.trackers:
-            if tracker.w > best:
-                best = i
-
-        return best
-
 

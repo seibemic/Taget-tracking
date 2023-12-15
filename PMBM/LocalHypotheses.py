@@ -57,7 +57,8 @@ class LocalHypotheses:
 
         # counter +=1
         return counter
-
+    def addZ_indexes(self, Z_indexes):
+        self.Z_indexes = Z_indexes
     def applyGating0(self, z, counter, Pg=0.9):
         self.Z_indexes = []
         self.Z_indexes.append([-1, counter])
