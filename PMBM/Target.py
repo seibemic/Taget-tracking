@@ -10,14 +10,18 @@ class BernoulliTarget:
     def __init__(self, w_k, r_k, m_k, P_k):
         self.trackers = []
         self.trackers.append(LocalHypotheses(w_k, r_k, m_k, P_k, updatedBy=-1))
-
+        self.noMeasurementUpdateCnt = 0
     def add(self, w_k, r_k, m_k, P_k):
         self.trackers.append(LocalHypotheses(w_k, r_k, m_k, P_k, updatedBy=-1))
 
     def predict(self, ps, F, Q):
         for target in self.trackers:
             target.predict(ps, F, Q)
-
+    # def addZids(self, targetsZids):
+    #     self.targetsZids = targetsZids
+    #
+    # def getZids(self):
+    #     return self.targetsZids
     def applyGating(self, z):
         self.targetsZids = []
         counter = 0
@@ -80,7 +84,7 @@ class PoissonTarget:
         self.targetsZids = []
         counter = 0
 
-        Pg = 0.95
+        Pg = 0.99
         gamma = chi2.ppf(Pg, df=2)
         covInv = np.linalg.inv(self.S)
         newBernoulli = False
@@ -92,6 +96,7 @@ class PoissonTarget:
                 ro = e + lambd
                 r = e / ro
                 w = self.w * mvn.pdf(z_, self.ny, self.S)
+                w=1
                 all_w += w
                 m = self.m + self.P @ H.T @ covInv @ (z_ - H @ self.m)
                 P = self.P - self.P @ H.T @ covInv @ (self.P @ H.T).T
@@ -106,7 +111,11 @@ class PoissonTarget:
                     counter += 1
         if Btarget:
             for i in range(len(Btarget.trackers)):
-                Btarget.trackers[i].w /= all_w
+                # Btarget.trackers[i].w /= all_w
+                # Btarget.trackers[i].w = np.log(Btarget.trackers[i].w)
+                print("poisson w: ",Btarget.trackers[i].w )
+            print()
+            # Btarget.addZids(self.targetsZids)
             return Btarget, self.targetsZids
         return None, None
 

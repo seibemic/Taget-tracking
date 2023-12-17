@@ -31,14 +31,14 @@ class LocalHypotheses:
         self.P = (np.eye(len(self.K)) - self.K @ H) @ self.P
 
     def update(self, pd):
-        print("update: ", self.w, " ", self.r, " ", np.diagonal(self.P_apost))
+        # print("update: ", self.w, " ", self.r, " ", np.diagonal(self.P_apost))
 
         self.w = (self.w) + np.log((1-self.r + self.r * (1 - pd)))
         # print("     ", self.w)
         self.r = (self.r*(1-pd)) / (1-self.r + self.r*(1-pd))
         self.m = self.m
         self.P = self.P_apost
-        print("update: ", self.w, " ", self.r, " ", pd)
+        # print("update: ", self.w, " ", self.r, " ", pd)
         # self.P_aposterior = self.P_aprior
 
     def applyGating(self, z, counter, Pg=0.99):
@@ -57,8 +57,7 @@ class LocalHypotheses:
 
         # counter +=1
         return counter
-    def addZ_indexes(self, Z_indexes):
-        self.Z_indexes = Z_indexes
+
     def applyGating0(self, z, counter, Pg=0.9):
         self.Z_indexes = []
         self.Z_indexes.append([-1, counter])
@@ -66,7 +65,7 @@ class LocalHypotheses:
         # counter +=1
         return counter
 
-    def applyGating1(self, z, counter, Pg=0.95):
+    def applyGating1(self, z, counter, Pg=0.99):
         self.Z_indexes = []
         self.Z_gating = []
         covInv = np.linalg.inv(self.S)

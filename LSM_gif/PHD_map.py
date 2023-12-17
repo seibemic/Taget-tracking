@@ -194,16 +194,23 @@ class PHD_map:
     def run(self):
         size = 50
         imgs=[]
+        img = Image.open("plane.png")
+        img.thumbnail((size, size))
+        img=img.rotate(0)
+        imgs.append(img)
         img = Image.open('banana.png')
         img.thumbnail((size, size))
         img=img.rotate(-45+90)
         imgs.append(img)
-        img = Image.open('plane.png')
+
+        imgs2 = []
+        img = Image.open("boom.png")
         img.thumbnail((size, size))
-        img=img.rotate(0)
-        imgs.append(img)
+        imgs2.append(img)
+
+        counter=0
         fig, ax = plt.subplots(figsize=(10, 10))
-        for t in range(self.radarMap.ndat):
+        for t in range(70):#range(self.radarMap.ndat):
             print("time: ", t)
             print("     num of phds (before): ", len(self.phds))
             self.predictionForExistingTargets()
@@ -224,23 +231,48 @@ class PHD_map:
             #     print(r.P.diagonal())
             # print(w)
             self.getPHDsToPlot()
-            self.getTopK(2)
-            self.radarMap.animateRadar(t, ax, imgs,showTrueTrajectoriesMeasurements=True)
-            # if self.phds[self.topK[0]].m[3] > self.phds[self.topK[1]].m[3]:
-            #     higher = 0
-            # else:
-            #     higher = 1
-            # for i, k in enumerate(self.topK):
-            #
-            #     ax.imshow(imgs[(higher+i)%2], extent=[self.phds[k].m[0]-size/2,self.phds[k].m[0]+size/2,self.phds[k].m[1]-size/2,self.phds[k].m[1]+size/2])
-                #ax.plot(self.phds[k].m[0], self.phds[k].m[1], "+", color=self.model_colors[i % len(self.model_colors)], label="PHD")
-                # confidence_ellipse([filter.m[0], filter.m[1]], filter.P, ax=ax,
-                #                    edgecolor=self.model_colors[i % len(self.model_colors)])
-                # print(filter.P.diagonal())
-            # print(filter.P)
-            # plt.plot(filter)
-            ax.legend(loc='center left', bbox_to_anchor=(0.9, 0.5))
-            plt.pause(0.3)
+            for i in range(72):
+
+                self.radarMap.animateRadar(t, ax,counter =i, imgs=imgs,showTrueTrajectoriesMeasurements=True)
+                # if self.phds[self.topK[0]].m[3] > self.phds[self.topK[1]].m[3]:
+                #     higher = 0
+                # else:
+                #     higher = 1
+                # for i, k in enumerate(self.topK):
+                #
+                #     ax.imshow(imgs[(higher+i)%2], extent=[self.phds[k].m[0]-size/2,self.phds[k].m[0]+size/2,self.phds[k].m[1]-size/2,self.phds[k].m[1]+size/2])
+                    #ax.plot(self.phds[k].m[0], self.phds[k].m[1], "+", color=self.model_colors[i % len(self.model_colors)], label="PHD")
+                    # confidence_ellipse([filter.m[0], filter.m[1]], filter.P, ax=ax,
+                    #                    edgecolor=self.model_colors[i % len(self.model_colors)])
+                    # print(filter.P.diagonal())
+                # print(filter.P)
+                # plt.plot(filter)
+                #ax.legend(loc='center left', bbox_to_anchor=(0.9, 0.5))
+                #ax.set_title(f"{t}")
+                #plt.pause(0.01)
+                plt.savefig(f"./radarGif_01/{counter}.png")
+                counter += 1
+            if t == 69:
+                for i in range(72):
+                    self.radarMap.animateRadar(t, ax, counter=i, imgs=imgs2, showTrueTrajectoriesMeasurements=True)
+                    # if self.phds[self.topK[0]].m[3] > self.phds[self.topK[1]].m[3]:
+                    #     higher = 0
+                    # else:
+                    #     higher = 1
+                    # for i, k in enumerate(self.topK):
+                    #
+                    #     ax.imshow(imgs[(higher+i)%2], extent=[self.phds[k].m[0]-size/2,self.phds[k].m[0]+size/2,self.phds[k].m[1]-size/2,self.phds[k].m[1]+size/2])
+                    # ax.plot(self.phds[k].m[0], self.phds[k].m[1], "+", color=self.model_colors[i % len(self.model_colors)], label="PHD")
+                    # confidence_ellipse([filter.m[0], filter.m[1]], filter.P, ax=ax,
+                    #                    edgecolor=self.model_colors[i % len(self.model_colors)])
+                    # print(filter.P.diagonal())
+                    # print(filter.P)
+                    # plt.plot(filter)
+                     #ax.legend(loc='center left', bbox_to_anchor=(0.9, 0.5))
+                      #ax.set_title(f"{t}")
+                    #plt.pause(0.01)
+                    plt.savefig(f"./radarGif_01/{counter}.png")
+                    counter += 1
 
 
 if __name__ == '__main__':

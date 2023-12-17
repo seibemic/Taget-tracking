@@ -577,7 +577,7 @@ class Radar(MapGenerator):
                     confidence_ellipse(airPort.pos[:2], airPort.cov, ax=ax, edgecolor="black")
             plt.pause(0.01)
 
-    def animateRadar(self, t, ax,showTrueTrajectories=True, showTrueTrajectoriesMeasurements=True, showRadar=True,
+    def animateRadar(self, t, ax,laserCounter,showTrueTrajectories=True, showTrueTrajectoriesMeasurements=True, showRadar=True,
                      showMapClutter=True, showRadarClutter=True, showBorderAirports=True,
                      showAirports=True):
         """
@@ -625,7 +625,7 @@ class Radar(MapGenerator):
             ax.add_patch(radar2)
             ax.add_patch(radar3)
             ax.add_patch(radar4)
-            w = Wedge((self.radarPosition), self.radarRadius, 45+t*50, 90+t*50, color="lime", alpha=0.5)
+            w = Wedge((self.radarPosition), self.radarRadius, 45+(t+laserCounter)*5, 75+(t+laserCounter)*5, color="lime", alpha=0.5)
             ax.add_patch(w)
         if showBorderAirports:
             for airPort in self.borderAirports:

@@ -26,7 +26,7 @@ class PMBM_map:
         self.measurements = radar.getAllMeasurementsWithinRadarRadius()
         self.globalHyp_mat = [[]]
         self.globalHyp_w = []
-        self.Zids = []
+
         self.model_colors = ["saddlebrown", "black", "magenta", "slategray"]
 
     def predictionForBirthTargets(self):
@@ -40,7 +40,7 @@ class PMBM_map:
             w = airport.weight
             m = np.array(airport.pos)
             P = airport.cov
-            self.Ptargets.append(PoissonTarget(w,m, P))
+            self.Ptargets.append(PoissonTarget(w, m, P))
 
     def predictionForExistingTargets(self):
         for target in self.targets:
@@ -55,12 +55,34 @@ class PMBM_map:
         return self.measurements[time]
 
     def applyGating(self, z, t):
-
+        self.Zids = []
         for i, target in enumerate(self.targets):
             self.Zids.append(target.applyGating(z))
+        print("Z_ids after Bernoulli")
+        print(self.Zids)
+        self.newTargetsCnt = 0
+        PtargetsToDelete = []
+        newTargets = []
+        newZids = []
+        for i, target in enumerate(self.Ptargets):
+            Btarget, Zids = target.applyGating(z, self.pd, self.lambd, self.H)
+            if Btarget:
+                PtargetsToDelete.append(i)
+                self.newTargetsCnt += 1
+                newTargets.append(Btarget)
+                newZids.append(Zids)
+                self.targets.append(Btarget)
+                self.Zids.append(Zids)
+        print("New Zids:")
+        print(newZids)
+        print("Z_ids after Poisson")
+        print(self.Zids)
+        for index in sorted(PtargetsToDelete, reverse=True):
+            del self.Ptargets[index]
 
     def getHypothesis(self):
-
+        print("Z_ids")
+        print(self.Zids)
         combinations = list(itertools.product(*self.Zids))
         target_id = []
         z_id = []
@@ -74,6 +96,8 @@ class PMBM_map:
 
     def makeGlobalMatWeights(self):
         weights = np.zeros_like(np.array(self.globalHyp_mat, dtype="float32").T)
+        print("weights:")
+        print(weights)
         for i, target in enumerate(np.array(self.globalHyp_mat).T):
             for j, target_id in enumerate(target):
                 weights[i][j] = self.targets[i].trackers[target_id].w
@@ -119,7 +143,7 @@ class PMBM_map:
         for j, target in enumerate(self.targets):
             indexes = []
             for i, hyp in enumerate(target.trackers):
-                if hyp.r < 1e-4 or hyp.w < 1e-4:
+                if hyp.r < 1e-4:# or hyp.w < 1e-4:
                     indexes.append(i)
             # lowerEl = len([x for x in indexes if x < self.bestHypothesis[j]])
             # self.bestHypothesis[j] -= lowerEl
@@ -149,8 +173,14 @@ class PMBM_map:
     def pruneTargets(self):
         for i, target in enumerate(self.targets):
             indexes = set((self.K_bestHypothesis.T)[i])
-            deleted = set((self.globalHyp_mat.T)[i]) - indexes
+            #deleted = set((self.globalHyp_mat.T)[i]) - indexes
+            deleted = set(range(len(self.targets[i].trackers))) - indexes
+            print("glob hyp : ", i)
+            print(set((self.globalHyp_mat.T)[i]))
+            print("deleted:")
+            print(deleted)
             lowerEl = len([x for x in deleted if x < self.bestHypothesis[i]])
+            print('lower el: ', i, " ", lowerEl)
             self.bestHypothesis[i] -= lowerEl
             target.trackers = [e for j, e in enumerate(target.trackers) if j in indexes]
         lens = []
@@ -175,37 +205,114 @@ class PMBM_map:
     def updateComponents(self):
         for target in self.targets:
             target.updateComponents(self.H, self.R)
+        for target in self.Ptargets:
+            target.updateComponents(self.H, self.R)
 
     def update(self):
-        for target in self.targets:
-            target.update(self.pd, self.lambd)
+        for i in range(len(self.targets) - self.newTargetsCnt):
+            self.targets[i].update(self.pd, self.lambd)
 
     def updateWithMeasurements(self, time):
-
-
         self.updateComponents()
         z = np.array(self.measurements[time]).T
         self.applyGating(z, time)
         self.update()
+    def prunePoissonByMaxWeight(self, w):
+        filters_to_stay = []
+        # print(" filteres before pruning: ", len(self.phds))
+        for filter in self.Ptargets:
+            if filter.w > w:
+                filters_to_stay.append(filter)
+        print("prune len: ", len(filters_to_stay))
+        self.Ptargets = filters_to_stay
 
+    def addNoMeasurementUpdate(self,steps = 2):
+        targetToDelete = []
+        for i, target in enumerate(self.K_bestHypothesis.T):
+            if np.sum(target) == 0:
+                self.targets[i].noMeasurementUpdateCnt += 1
+                if self.targets[i].noMeasurementUpdateCnt == steps:
+                    targetToDelete.append(i)
+            else:
+                self.targets[i].noMeasurementUpdateCnt = 0
+        for index in sorted(targetToDelete, reverse=True):
+            del self.targets[index]
 
+    def KLdistance(self, t1, t2):
+        KL = 0
+        p2_inv = np.linalg.inv(t2.P)
+        det1 = np.linalg.det(t1.P)
+        det2 = np.linalg.det(t2.P)
+        nx = len(t1.P)
+        if t1.r == 0 or t1.r == 1 or t2.r == 0 or t2.r == 1:
+            KL = t1.r / 2 * (np.trace(p2_inv @ t1.P) - np.log(det1 / det2) - nx
+                             + (t2.m - t1.m).T @ p2_inv @ (t2.m - t1.m))
+        else:
+            KL = ((1 - t1.r) * np.log((1 - t1.r) / (1 - t2.r))
+                  + t1.r * np.log(t1.r / t2.r)
+                  + t1.r / 2 * (np.trace(p2_inv @ t1.P) - np.log(det1 / det2) - nx
+                                + (t2.m - t1.m).T @ p2_inv @ (t2.m - t1.m)))
+
+        return KL
+
+    def mergeLocalHypotheses(self):
+        print("merge")
+        for target_id, target in enumerate(self.targets):
+            print("target: ", target_id)
+            w = len(target.trackers)
+            if w == 1:
+                continue
+            KL_matrix = np.ones(shape=(w, w)) * 10000
+            for i, locHyp in enumerate(target.trackers):
+                for j, locHyp2 in enumerate(target.trackers):
+                    if i != j:
+                        KL_matrix[i, j] = self.KLdistance(locHyp, locHyp2)
+            print("KL:")
+            print(KL_matrix)
+            print("argmin:")
+            ind = np.unravel_index(np.argmin(KL_matrix, axis=None), KL_matrix.shape)
+            print(ind)
+            print(KL_matrix[ind])
     def run(self):
 
         fig, ax = plt.subplots(figsize=(10, 10))
         for t in range(self.radarMap.ndat):
             print("-----------------time: ", t, "---------------")
             self.predictionForExistingTargets()
-            self.predictionForBirthTargets()
+            if t < 2:
+                self.predictionForBirthTargets()
             self.updateWithMeasurements(t)
-            self.pruneByExistenceProbabiltyAndWeights()
+            print("B. targets + P. Targets ")
+            print(len(self.targets), " + ", len(self.Ptargets))
 
+            for i, target in enumerate(self.targets):
+                print("target: ", i)
+                for hyp in target.trackers:
+                    print("          r: ", hyp.r)
+            print("Z_ids before prunning:")
+            print(self.Zids)
+            self.pruneByExistenceProbabiltyAndWeights()
+            self.prunePoissonByMaxWeight(0.1)
+            print("after prunning: B. targets + P. Targets ")
+            print(len(self.targets), " + ", len(self.Ptargets))
+            print("Z_ids after prunning:")
+            print(self.Zids)
             self.globalHyp_mat, self.globalHyp_mat_z = self.getHypothesis()
             self.makeGlobalMatWeights()
-            self.selectKBestHypothese(10)
+            self.selectKBestHypothese(30)
+            for i, target in enumerate(self.targets):
+                print("target: ", i)
+                for hyp in target.trackers:
+                    print("          r: ")
             self.pruneTargets()
-
+            print("best hyp")
+            print(self.bestHypothesis)
             self.radarMap.animateRadar(t, ax)
             ax.set_title(f"{t}")
+            for i,target in enumerate(self.targets):
+                print("target: ", i)
+                for hyp in target.trackers:
+                    print("          r: ", hyp.r, " ny:", hyp.m, " P: ", np.diagonal(hyp.P))
             for i, target_id in enumerate(self.bestHypothesis):
                 ax.plot(self.targets[i].trackers[target_id].m[0], self.targets[i].trackers[target_id].m[1], "+",
                         color=self.model_colors[i % len(self.model_colors)], label=f"MBM_{i}")
@@ -214,8 +321,11 @@ class PMBM_map:
                                    edgecolor=self.model_colors[i % len(self.model_colors)])
 
             ax.legend(loc='center left', bbox_to_anchor=(0.9, 0.5))
-            fig.savefig(f'./pics/t_{t}.png')
+
             # self.logWeights()
+
+            self.addNoMeasurementUpdate(3)
+            self.mergeLocalHypotheses()
             plt.waitforbuttonpress()
             # plt.pause(2)
 
@@ -232,7 +342,7 @@ if __name__ == '__main__':
     H = np.lib.pad(H, ((0, 0), (0, 2)), 'constant', constant_values=(0))
 
     ndat = 100
-    lambd = 0.0001
+    lambd = 0.00001
     Pd = 0.9
     Ps = 0.95
 

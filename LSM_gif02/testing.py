@@ -2,7 +2,7 @@ from PIL import Image
 import matplotlib.pyplot as plt
 
 # reading png image  file
-img = Image.open('plane.png')
+img = Image.open('../LSM_gif/plane.png')
 
 # resizing the image
 img.thumbnail((50, 50))

@@ -194,6 +194,7 @@ class PHD_map:
     def run(self):
 
         fig, ax = plt.subplots(figsize=(10, 10))
+        counter =0
         for t in range(self.radarMap.ndat):
             print("time: ", t)
             print("     num of phds (before): ", len(self.phds))
@@ -206,26 +207,34 @@ class PHD_map:
             self.updateWithMeasurements(t)
             self.pruneByMaxWeight(0.1)
             # self.log()
-            #self.getMeasurements(t)
+            # self.getMeasurements(t)
             self.mergeTargets()
 
-            w=[]
+            w = []
             # for r in self.phds:
             #     w.append(r.w)
             #     print(r.P.diagonal())
             # print(w)
             self.getPHDsToPlot()
-            self.radarMap.animateRadar(t, ax,showTrueTrajectoriesMeasurements=True)
 
-            for i, filter in enumerate(self.phdsToPlot):
-                ax.plot(filter.m[0], filter.m[1], "+", color="white", label="PHD")
-                confidence_ellipse([filter.m[0], filter.m[1]], filter.P, ax=ax,
-                                   edgecolor="white")
-                # print(filter.P.diagonal())
-            # print(filter.P)
-            # plt.plot(filter)
-            ax.legend(loc='center left', bbox_to_anchor=(0.9, 0.5))
-            plt.pause(0.01)
+            for i in range(72):
+
+                self.radarMap.animateRadar(t, ax, laserCounter=i, showTrueTrajectoriesMeasurements=True)
+
+                for i, filter in enumerate(self.phdsToPlot):
+                    ax.plot(filter.m[0], filter.m[1], "+", color="white", label="PHD")
+                    confidence_ellipse([filter.m[0], filter.m[1]], filter.P, ax=ax,
+                                       edgecolor="white")
+                    # print(filter.P.diagonal())
+                # print(filter.P)
+                # plt.plot(filter)
+                # ax.legend(loc='center left', bbox_to_anchor=(0.9, 0.5))
+                #plt.pause(0.01)
+                plt.savefig(f"./radarGif_01/{counter}.png")
+                counter+=1
+
+
+            #
 
 
 if __name__ == '__main__':
@@ -235,18 +244,18 @@ if __name__ == '__main__':
                   [0, 0, 1, 0],
                   [0, 0, 0, 1]])
     Q = np.diag([0.1, 0.1, 0.1, 0.1])
-    R = np.diag([5, 5]) * 5
+    R = np.diag([5, 5]) * 10
     H = np.diag([1, 1])  # 2x4
     H = np.lib.pad(H, ((0, 0), (0, 2)), 'constant', constant_values=(0))
 
-    ndat = 100
+    ndat = 200
     lambd = 0.00005
     Pd = 0.99
     Ps = 0.95
 
     r = Radar(F, Q, R, H, ndat, lambd)
     r.setRadarPosition([100, 100])
-    # r.setRadarRadius(500)
+    r.setRadarRadius(800)
     sx = R[0, 0] * 5
     sy = R[1, 1] * 5
     airportCov = np.array([[sx, 0, sx, 0],
@@ -260,10 +269,10 @@ if __name__ == '__main__':
     seed=np.random.randint(1000)
     print("seed: ", seed)
 
-    r.addSingleTrajectory([-100, 250, 2, 0], 692, ndat, 0, False)
-    r.addSingleTrajectory([220, 80, 0, 4], 29, ndat, 0, False)
-    r.addSingleTrajectory([100, -100, -4, 0], 547, ndat, 0, False)
-    r.addSingleTrajectory([-50, 100, 1, -4], 547, ndat, 0, False)
+    r.addSingleTrajectory([-400, 600, 2, 0], 692, ndat, 0, False)
+    r.addSingleTrajectory([220, 80, 0, 4], 687, ndat, 0, False)
+    r.addSingleTrajectory([200, -400, -4, 0], 687, ndat, 0, False)
+    r.addSingleTrajectory([-500, 100, 1, -4], 547, ndat, 0, False)
     r.makeRadarMap(full_trajectories=0, short_trajectories=None, global_clutter=True, startFromAirport=True,
                    borned_trajectories=0, crossNTrajectories=0, adjustAirports=True)
      # r.makeRadarMap(full_trajectories=2, short_trajectories=[50], global_clutter=False, startFromAirport=False)

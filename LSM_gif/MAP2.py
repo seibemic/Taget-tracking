@@ -576,7 +576,7 @@ class Radar(MapGenerator):
                     confidence_ellipse(airPort.pos[:2], airPort.cov, ax=ax, edgecolor="black")
             plt.pause(0.3)
 
-    def animateRadar(self, t, ax, imgs,showTrueTrajectories=True, showTrueTrajectoriesMeasurements=True, showRadar=True,
+    def animateRadar(self, t, ax,counter, imgs,showTrueTrajectories=True, showTrueTrajectoriesMeasurements=True, showRadar=True,
                      showMapClutter=True, showRadarClutter=True, showBorderAirports=True,
                      showAirports=True):
         """
@@ -610,17 +610,14 @@ class Radar(MapGenerator):
         if showTrueTrajectoriesMeasurements:
             #ax.plot(self.trajectoriesMeasurements[t][0], self.trajectoriesMeasurements[t][1], "*r",
              #       label="Trajectory measurement")
-            sizeW,sizeH= imgs[1].size
-            ax.imshow(imgs[1], extent=[self.trajectories[0].X[0][t]-sizeW/2,
-                                       self.trajectories[0].X[0][t]+sizeH/2,
-                                       self.trajectories[0].X[1][t]-sizeW/2,
-                                       self.trajectories[0].X[1][t]+sizeH/2])
+            for i in range(len(imgs)):
+                sizeW,sizeH= imgs[i].size
+                ax.imshow(imgs[i], extent=[self.trajectories[i].X[0][t]-sizeW/2,
+                                           self.trajectories[i].X[0][t]+sizeH/2,
+                                           self.trajectories[i].X[1][t]-sizeW/2,
+                                           self.trajectories[i].X[1][t]+sizeH/2])
 
-            sizeW, sizeH = imgs[0].size
-            ax.imshow(imgs[0], extent=[self.trajectories[1].X[0][t] - sizeW / 2,
-                                       self.trajectories[1].X[0][t] + sizeH / 2,
-                                       self.trajectories[1].X[1][t] - sizeW / 2,
-                                       self.trajectories[1].X[1][t] + sizeH / 2])
+
         if showRadar:
             from matplotlib.patches import Circle, Polygon, Wedge
             radar = plt.Circle((self.radarPosition), self.radarRadius, color="lime", fill=False, label="Radar")
@@ -634,7 +631,7 @@ class Radar(MapGenerator):
             ax.add_patch(radar2)
             ax.add_patch(radar3)
             ax.add_patch(radar4)
-            w = Wedge((self.radarPosition), self.radarRadius, 45+t*50, 90+t*50, color="lime", alpha=0.5)
+            w = Wedge((self.radarPosition), self.radarRadius, 45+(t+counter)*5, 75+(t+counter)*5, color="lime", alpha=0.5)
             ax.add_patch(w)
         if showBorderAirports:
             for airPort in self.borderAirports:
